@@ -27,11 +27,23 @@ interface LoadedAgent {
   toolConnectorConfig: ToolConnectorConfig;
 }
 
+interface OrchestrationRule {
+  id: string;
+  name: string;
+  rule_type: string;
+  from_agent_id: string | null;
+  to_agent_id: string | null;
+  condition_expr: string | null;
+  priority: number;
+  enabled: boolean;
+}
+
 interface ClusterConfig {
   name: string;
   managerAgentId: string | null;
   agents: LoadedAgent[];
   handoffs: { from_agent_id: string; to_agent_id: string; condition: string; description?: string }[];
+  orchestrationRules: OrchestrationRule[];
   clusterPrompt: string;
 }
 
@@ -45,6 +57,14 @@ async function loadClusterConfig(clusterId: string): Promise<ClusterConfig> {
     .single();
 
   if (error || !cluster) throw new Error("Cluster not found");
+
+  // Load orchestration rules
+  const { data: rules } = await supabase
+    .from("cluster_orchestration_rules")
+    .select("*")
+    .eq("cluster_id", clusterId)
+    .eq("enabled", true)
+    .order("priority", { ascending: false });
 
   let clusterPrompt = "";
   for (const file of cluster.cluster_files || []) {
@@ -108,6 +128,7 @@ async function loadClusterConfig(clusterId: string): Promise<ClusterConfig> {
     managerAgentId: cluster.manager_agent_id,
     agents,
     handoffs: cluster.handoff_definitions || [],
+    orchestrationRules: rules || [],
     clusterPrompt,
   };
 }
@@ -125,6 +146,31 @@ function buildManagerSystemPrompt(config: ClusterConfig): string {
     })
     .join("\n");
 
+  // Build orchestration rules section
+  let orchestrationSection = "";
+  if (config.orchestrationRules.length > 0) {
+    const ruleLines = config.orchestrationRules.map((r) => {
+      const from = r.from_agent_id ? config.agents.find((a) => a.id === r.from_agent_id)?.name || r.from_agent_id : "any agent";
+      const to = r.to_agent_id ? config.agents.find((a) => a.id === r.to_agent_id)?.name || r.to_agent_id : "any agent";
+      const parts = [`- **${r.name}** (${r.rule_type}, priority: ${r.priority})`];
+      if (r.rule_type === "condition") {
+        parts.push(`  When: ${r.condition_expr || "always"}`);
+        parts.push(`  Route: ${from} → ${to}`);
+      } else if (r.rule_type === "dependency") {
+        parts.push(`  ${to} depends on output from ${from}`);
+      } else if (r.rule_type === "priority") {
+        parts.push(`  ${to} should be prioritized (priority: ${r.priority})`);
+      }
+      return parts.join("\n");
+    });
+
+    orchestrationSection = `\n\n## Orchestration Rules
+
+These rules MUST be followed when routing tasks. They take precedence over general handoff rules.
+
+${ruleLines.join("\n\n")}`;
+  }
+
   return `${config.clusterPrompt || "You are the manager of a multi-agent cluster."}
 
 ## Your Agents
@@ -133,7 +179,7 @@ ${agentList}
 
 ## Handoff Rules
 
-${handoffList || "No explicit handoff rules defined. Route tasks as you see fit."}
+${handoffList || "No explicit handoff rules defined. Route tasks as you see fit."}${orchestrationSection}
 
 ## How to Delegate
 
@@ -142,11 +188,58 @@ Use the \`delegate_to_agent\` tool to send tasks to specific agents. You will re
 - Synthesize results from multiple agents
 - Respond directly to the user
 
-Always explain your coordination decisions. Route work to the most appropriate agent based on the handoff rules and agent roles.`;
+Always explain your coordination decisions. Route work to the most appropriate agent based on the orchestration rules, handoff rules, and agent roles.`;
+}
+
+/**
+ * Evaluate orchestration rules to determine if a delegation should be
+ * redirected or blocked based on the rules.
+ */
+function evaluateOrchestrationRules(
+  config: ClusterConfig,
+  fromAgentId: string,
+  toAgentId: string,
+  completedAgentIds: Set<string>
+): { allowed: boolean; redirectTo?: string; reason?: string } {
+  // Check dependency rules: if the target agent depends on another agent
+  // that hasn't completed yet, block or redirect
+  const dependencyRules = config.orchestrationRules.filter(
+    (r) => r.rule_type === "dependency" && r.to_agent_id === toAgentId
+  );
+
+  for (const rule of dependencyRules) {
+    if (rule.from_agent_id && !completedAgentIds.has(rule.from_agent_id)) {
+      const depAgent = config.agents.find((a) => a.id === rule.from_agent_id);
+      return {
+        allowed: false,
+        redirectTo: rule.from_agent_id,
+        reason: `${config.agents.find((a) => a.id === toAgentId)?.name} depends on ${depAgent?.name || rule.from_agent_id} which hasn't completed yet. Routing to dependency first.`,
+      };
+    }
+  }
+
+  // Check condition rules: if there's a condition-based routing rule
+  const conditionRules = config.orchestrationRules
+    .filter((r) => r.rule_type === "condition" && r.from_agent_id === fromAgentId)
+    .sort((a, b) => b.priority - a.priority);
+
+  for (const rule of conditionRules) {
+    if (rule.to_agent_id && rule.to_agent_id !== toAgentId) {
+      // There's a higher-priority condition rule that routes elsewhere
+      // Only enforce if this is the first matching rule
+      return {
+        allowed: true,
+        reason: `Condition rule "${rule.name}" suggests routing to ${config.agents.find((a) => a.id === rule.to_agent_id)?.name}`,
+      };
+    }
+  }
+
+  return { allowed: true };
 }
 
 export async function* runCluster(config: ClusterRunConfig): AsyncGenerator<ClusterRunEvent> {
   const { clusterId, userMessage, maxTurns = 20 } = config;
+  const supabase = createAdminSupabaseClient();
 
   let clusterConfig: ClusterConfig;
   try {
@@ -188,6 +281,9 @@ export async function* runCluster(config: ClusterRunConfig): AsyncGenerator<Clus
   const managerSystem = buildManagerSystemPrompt(clusterConfig);
   const managerMessages: MessageParam[] = [{ role: "user", content: userMessage }];
 
+  // Track which agents have completed tasks (for dependency resolution)
+  const completedAgentIds = new Set<string>();
+
   let turns = 0;
   yield { type: "text", content: "", agentName: manager.name, agentId: manager.id };
 
@@ -223,10 +319,42 @@ export async function* runCluster(config: ClusterRunConfig): AsyncGenerator<Clus
       for (const toolUse of allToolUses) {
         if (toolUse.name === "delegate_to_agent") {
           const input = toolUse.input as { agent_id: string; task: string };
-          const targetAgent = clusterConfig.agents.find((a) => a.id === input.agent_id);
+          let targetAgentId = input.agent_id;
+
+          // Evaluate orchestration rules before delegating
+          if (clusterConfig.orchestrationRules.length > 0) {
+            const evaluation = evaluateOrchestrationRules(
+              clusterConfig,
+              manager.id,
+              targetAgentId,
+              completedAgentIds
+            );
+
+            if (!evaluation.allowed && evaluation.redirectTo) {
+              // Redirect to the dependency agent instead
+              targetAgentId = evaluation.redirectTo;
+              yield {
+                type: "text",
+                content: `\n[Orchestration] ${evaluation.reason}\n`,
+                agentName: "orchestrator",
+              };
+
+              // Record the redirect in the task queue
+              supabase.from("cluster_task_queue").insert({
+                cluster_id: clusterId,
+                assigned_agent_id: targetAgentId,
+                source_agent_id: manager.id,
+                priority: 1,
+                input_message: input.task,
+                status: "running",
+              }).then(() => {});
+            }
+          }
+
+          const targetAgent = clusterConfig.agents.find((a) => a.id === targetAgentId);
 
           if (!targetAgent) {
-            toolResults.push({ type: "tool_result", tool_use_id: toolUse.id, content: `Agent ${input.agent_id} not found.`, is_error: true });
+            toolResults.push({ type: "tool_result", tool_use_id: toolUse.id, content: `Agent ${targetAgentId} not found.`, is_error: true });
             continue;
           }
 
@@ -245,8 +373,23 @@ export async function* runCluster(config: ClusterRunConfig): AsyncGenerator<Clus
               : { from: manager.name, to: targetAgent.name, condition: "delegation" },
           };
 
+          // Record task in queue
+          const { data: queueTask } = await supabase
+            .from("cluster_task_queue")
+            .insert({
+              cluster_id: clusterId,
+              assigned_agent_id: targetAgent.id,
+              source_agent_id: manager.id,
+              priority: 0,
+              input_message: input.task,
+              status: "running",
+            })
+            .select("id")
+            .single();
+
           // Run worker agent with tool loop
           let workerResponse = "";
+          let workerFailed = false;
           try {
             const workerMessages: MessageParam[] = [{ role: "user", content: input.task }];
             let workerTurns = 0;
@@ -291,6 +434,21 @@ export async function* runCluster(config: ClusterRunConfig): AsyncGenerator<Clus
             if (!workerResponse) workerResponse = "(Agent completed without text output)";
           } catch (err) {
             workerResponse = `Error from ${targetAgent.name}: ${err instanceof Error ? err.message : "Unknown error"}`;
+            workerFailed = true;
+          }
+
+          // Update task queue status
+          if (queueTask) {
+            supabase.from("cluster_task_queue").update({
+              status: workerFailed ? "failed" : "completed",
+              output_message: workerResponse.slice(0, 50000),
+              completed_at: new Date().toISOString(),
+            }).eq("id", queueTask.id).then(() => {});
+          }
+
+          // Mark agent as completed for dependency tracking
+          if (!workerFailed) {
+            completedAgentIds.add(targetAgent.id);
           }
 
           yield { type: "tool_result", tool_name: "delegate_to_agent", tool_result: workerResponse, agentName: targetAgent.name, agentId: targetAgent.id };

@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { runAgent } from "@/lib/ai/agent-runtime";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { dispatchWebhook } from "@/lib/webhooks";
+import { processRunCompletion } from "@/lib/pipeline";
 
 export async function POST(
   req: NextRequest,
@@ -111,6 +112,17 @@ export async function POST(
           input_tokens: totalInputTokens,
           output_tokens: totalOutputTokens,
         }).catch(() => {});
+
+        // Pipeline: roll up usage, recalculate health, evaluate alerts
+        processRunCompletion({
+          agentId,
+          userId,
+          status: hasError ? "failed" : "completed",
+          inputTokens: totalInputTokens,
+          outputTokens: totalOutputTokens,
+          durationMs: Date.now() - startTime,
+          sourceFramework: "web",
+        }).catch(() => {});
       } catch (err) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "error", error: err instanceof Error ? err.message : "Unknown error" })}\n\n`));
 
@@ -124,6 +136,17 @@ export async function POST(
         }
 
         dispatchWebhook(userId, "agent.run.failed", { agent_id: agentId, run_id: run?.id }).catch(() => {});
+
+        // Pipeline: record failure in usage/health/alerts
+        processRunCompletion({
+          agentId,
+          userId,
+          status: "failed",
+          inputTokens: 0,
+          outputTokens: 0,
+          durationMs: Date.now() - startTime,
+          sourceFramework: "web",
+        }).catch(() => {});
       }
       controller.close();
     },

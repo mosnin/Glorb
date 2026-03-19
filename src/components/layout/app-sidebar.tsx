@@ -10,6 +10,7 @@ import {
   Library,
   Globe,
   Settings,
+  BarChart3,
 } from "lucide-react";
 import {
   Sidebar,
@@ -32,6 +33,7 @@ const navItems = [
   { title: "Clusters", href: "/clusters", icon: Network },
   { title: "Templates", href: "/templates", icon: Library },
   { title: "Marketplace", href: "/marketplace", icon: Globe },
+  { title: "Analytics", href: "/analytics", icon: BarChart3 },
   { title: "Settings", href: "/settings", icon: Settings },
 ];
 

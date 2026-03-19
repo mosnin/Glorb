@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createAutoSnapshot } from "@/lib/pipeline";
 
 export async function GET(
   _req: NextRequest,
@@ -43,7 +44,7 @@ export async function PATCH(
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { fileId } = await params;
+  const { agentId, fileId } = await params;
   const body = await req.json();
   const supabase = await createServerSupabaseClient();
 
@@ -58,13 +59,15 @@ export async function PATCH(
 
   // Update content in storage if provided
   if (body.content !== undefined) {
+    // Auto-snapshot the full agent state before editing
+    createAutoSnapshot({ agentId, userId, trigger: "pre_edit" }).catch(() => {});
+
     // Auto-snapshot previous version before overwriting
     const { data: currentBlob } = await supabase.storage
       .from("agent-files")
       .download(file.storage_path);
 
     if (currentBlob) {
-      const { agentId } = await params;
       const { data: lastVersion } = await supabase
         .from("file_versions")
         .select("version_number")

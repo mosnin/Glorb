@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { createAgentZip } from "@/lib/export/zip";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createAutoSnapshot } from "@/lib/pipeline";
 
 export async function GET(
   _req: NextRequest,
@@ -21,6 +22,9 @@ export async function GET(
     .single();
 
   if (!agent) return NextResponse.json({ error: "Agent not found" }, { status: 404 });
+
+  // Auto-snapshot before export
+  createAutoSnapshot({ agentId, userId, trigger: "export" }).catch(() => {});
 
   const zipBuffer = await createAgentZip(agentId);
 

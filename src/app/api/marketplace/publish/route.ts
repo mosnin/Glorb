@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createAutoSnapshot } from "@/lib/pipeline";
 
 export async function POST(req: NextRequest) {
   const { userId } = await auth();
@@ -35,6 +36,11 @@ export async function POST(req: NextRequest) {
   const { data: existing } = await existingQuery.single();
 
   if (existing) return NextResponse.json({ error: "Already published" }, { status: 409 });
+
+  // Auto-snapshot before publishing (agents only)
+  if (entity_type === "agent") {
+    createAutoSnapshot({ agentId: agent_id, userId, trigger: "publish" }).catch(() => {});
+  }
 
   // Update entity status to published
   await supabase.from(table).update({ status: "published" }).eq("id", entityId);
