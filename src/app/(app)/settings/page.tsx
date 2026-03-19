@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { WebhookManager } from "@/components/settings/webhook-manager";
 
 interface ApiKey {
   id: string;
@@ -203,6 +204,9 @@ glorb pull agent <agent-id>`}
           </div>
         </CardContent>
       </Card>
+
+      {/* Webhooks */}
+      <WebhookManager />
 
       {/* New key dialog */}
       <Dialog open={!!newRawKey} onOpenChange={() => setNewRawKey(null)}>

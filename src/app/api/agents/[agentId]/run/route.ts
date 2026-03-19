@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest } from "next/server";
 import { runAgent } from "@/lib/ai/agent-runtime";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { dispatchWebhook } from "@/lib/webhooks";
 
 export async function POST(
   req: NextRequest,
@@ -26,14 +27,19 @@ export async function POST(
     });
   }
 
+  // Dispatch webhook
+  dispatchWebhook(userId, "agent.run.started", { agent_id: agentId }).catch(() => {});
+
   const stream = new ReadableStream({
     async start(controller) {
       const encoder = new TextEncoder();
       let fullResponse = "";
+      let hasError = false;
 
       try {
-        for await (const event of runAgent({ agentId, userMessage: message, conversationHistory: conversation_history })) {
+        for await (const event of runAgent({ agentId, userMessage: message, userId, conversationHistory: conversation_history })) {
           if (event.type === "text" && event.content) fullResponse += event.content;
+          if (event.type === "error") hasError = true;
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
         }
 
@@ -45,8 +51,15 @@ export async function POST(
             content: fullResponse,
           });
         }
+
+        // Dispatch completion webhook
+        dispatchWebhook(userId, hasError ? "agent.run.failed" : "agent.run.completed", {
+          agent_id: agentId,
+          response_length: fullResponse.length,
+        }).catch(() => {});
       } catch (err) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "error", error: err instanceof Error ? err.message : "Unknown error" })}\n\n`));
+        dispatchWebhook(userId, "agent.run.failed", { agent_id: agentId }).catch(() => {});
       }
       controller.close();
     },

@@ -8,6 +8,7 @@ import {
   Bot,
   Network,
   Library,
+  Globe,
   Settings,
 } from "lucide-react";
 import {
@@ -30,6 +31,7 @@ const navItems = [
   { title: "Agents", href: "/agents", icon: Bot },
   { title: "Clusters", href: "/clusters", icon: Network },
   { title: "Templates", href: "/templates", icon: Library },
+  { title: "Marketplace", href: "/marketplace", icon: Globe },
   { title: "Settings", href: "/settings", icon: Settings },
 ];
 

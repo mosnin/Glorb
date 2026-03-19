@@ -16,6 +16,7 @@ export interface RunEvent {
 export interface AgentRunConfig {
   agentId: string;
   userMessage: string;
+  userId?: string;
   conversationHistory?: MessageParam[];
   maxTurns?: number;
 }
@@ -28,6 +29,33 @@ interface AgentConfig {
   maxTokens: number;
   toolConnectorConfig: ToolConnectorConfig;
 }
+
+// Built-in memory tools injected into every agent
+const MEMORY_TOOLS: Tool[] = [
+  {
+    name: "store_memory",
+    description: "Store a key-value memory that persists across conversations. Use this to remember facts, preferences, decisions, or anything the user would want you to recall later.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        key: { type: "string", description: "A short, descriptive key for this memory (e.g., 'user_name', 'preferred_language', 'project_stack')" },
+        value: { type: "string", description: "The value to store" },
+      },
+      required: ["key", "value"],
+    },
+  },
+  {
+    name: "recall_memory",
+    description: "Recall a previously stored memory by key, or list all stored memories if no key is provided.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        key: { type: "string", description: "The key to look up. If omitted, returns all memories." },
+      },
+      required: [],
+    },
+  },
+];
 
 async function loadAgent(agentId: string): Promise<AgentConfig> {
   const supabase = createAdminSupabaseClient();
@@ -61,7 +89,7 @@ async function loadAgent(agentId: string): Promise<AgentConfig> {
   const systemPrompt = promptParts.join("\n\n") || `You are ${typedAgent.name}. ${typedAgent.description}`;
 
   // Parse skill files into Claude Tool format
-  const tools: Tool[] = [];
+  const tools: Tool[] = [...MEMORY_TOOLS];
   for (const f of typedAgent.agent_files) {
     if (f.file_type !== "skill") continue;
     const content = files[f.file_path];
@@ -93,8 +121,55 @@ async function loadAgent(agentId: string): Promise<AgentConfig> {
   };
 }
 
+// Execute built-in memory tools
+async function executeMemoryTool(
+  toolName: string,
+  input: Record<string, unknown>,
+  agentId: string,
+  userId: string
+): Promise<string | null> {
+  if (toolName !== "store_memory" && toolName !== "recall_memory") return null;
+
+  const supabase = createAdminSupabaseClient();
+
+  if (toolName === "store_memory") {
+    const { key, value } = input as { key: string; value: string };
+    await supabase
+      .from("agent_memories")
+      .upsert(
+        { agent_id: agentId, user_id: userId, key, value, updated_at: new Date().toISOString() },
+        { onConflict: "agent_id,user_id,key" }
+      );
+    return `Stored memory: ${key}`;
+  }
+
+  if (toolName === "recall_memory") {
+    const { key } = input as { key?: string };
+    if (key) {
+      const { data } = await supabase
+        .from("agent_memories")
+        .select("key, value")
+        .eq("agent_id", agentId)
+        .eq("user_id", userId)
+        .eq("key", key)
+        .single();
+      return data ? `${data.key}: ${data.value}` : `No memory found for key "${key}"`;
+    }
+    const { data } = await supabase
+      .from("agent_memories")
+      .select("key, value")
+      .eq("agent_id", agentId)
+      .eq("user_id", userId)
+      .order("updated_at", { ascending: false });
+    if (!data || data.length === 0) return "No memories stored yet.";
+    return data.map((m) => `${m.key}: ${m.value}`).join("\n");
+  }
+
+  return null;
+}
+
 export async function* runAgent(config: AgentRunConfig): AsyncGenerator<RunEvent> {
-  const { agentId, userMessage, conversationHistory = [], maxTurns = 10 } = config;
+  const { agentId, userMessage, userId = "anonymous", conversationHistory = [], maxTurns = 10 } = config;
 
   let agentConfig: AgentConfig;
   try {
@@ -155,7 +230,15 @@ export async function* runAgent(config: AgentRunConfig): AsyncGenerator<RunEvent
         yield { type: "tool_use", tool_name: toolUse.name, tool_input: toolUse.input as Record<string, unknown> };
 
         try {
-          const result = await executeToolWithConnector(
+          // Check built-in memory tools first
+          const memoryResult = await executeMemoryTool(
+            toolUse.name,
+            toolUse.input as Record<string, unknown>,
+            agentId,
+            userId
+          );
+
+          const result = memoryResult ?? await executeToolWithConnector(
             toolUse.name,
             toolUse.input as Record<string, unknown>,
             agentConfig.toolConnectorConfig

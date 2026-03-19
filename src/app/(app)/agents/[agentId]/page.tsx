@@ -2,12 +2,14 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { Code, Download, FileText, ArrowLeft, Play, FlaskConical } from "lucide-react";
+import { Code, Download, FileText, ArrowLeft, Play, FlaskConical, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AgentRunner } from "@/components/agents/agent-runner";
 import { TestSandbox } from "@/components/agents/test-sandbox";
+import { PublishDialog } from "@/components/agents/publish-dialog";
+import { MemoryPanel } from "@/components/agents/memory-panel";
 
 interface AgentDetail {
   id: string;
@@ -26,11 +28,16 @@ export default function AgentDetailPage({
 }) {
   const { agentId } = use(params);
   const [agent, setAgent] = useState<AgentDetail | null>(null);
+  const [showPublish, setShowPublish] = useState(false);
 
-  useEffect(() => {
+  const loadAgent = () => {
     fetch(`/api/agents/${agentId}`)
       .then((res) => res.json())
       .then(setAgent);
+  };
+
+  useEffect(() => {
+    loadAgent();
   }, [agentId]);
 
   if (!agent) {
@@ -59,6 +66,12 @@ export default function AgentDetailPage({
           )}
         </div>
         <div className="flex gap-2">
+          {agent.status !== "published" && (
+            <Button variant="outline" onClick={() => setShowPublish(true)}>
+              <Globe className="h-4 w-4 mr-2" />
+              Publish
+            </Button>
+          )}
           <Button render={<Link href={`/agents/${agentId}/ide`} />}>
               <Code className="h-4 w-4 mr-2" />
               Open IDE
@@ -83,6 +96,8 @@ export default function AgentDetailPage({
       </Card>
 
       <TestSandbox agentId={agentId} />
+
+      <MemoryPanel agentId={agentId} />
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
@@ -118,6 +133,14 @@ export default function AgentDetailPage({
           </CardContent>
         </Card>
       </div>
+      <PublishDialog
+        entityType="agent"
+        entityId={agentId}
+        entityName={agent.name}
+        open={showPublish}
+        onOpenChange={setShowPublish}
+        onPublished={loadAgent}
+      />
     </div>
   );
 }
