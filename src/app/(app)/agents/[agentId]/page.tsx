@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { Code, Download, FileText, ArrowLeft, Play, FlaskConical, Globe } from "lucide-react";
+import { Code, Download, FileText, ArrowLeft, Play, FlaskConical, Globe, Plug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,8 @@ import { MemoryPanel } from "@/components/agents/memory-panel";
 import { ScheduleManager } from "@/components/agents/schedule-manager";
 import { CollaboratorPanel } from "@/components/agents/collaborator-panel";
 import { RunHistory } from "@/components/agents/run-history";
+import { SyncDashboard } from "@/components/agents/sync-dashboard";
+import { SecretsPanel } from "@/components/agents/secrets-panel";
 
 interface AgentDetail {
   id: string;
@@ -79,6 +81,10 @@ export default function AgentDetailPage({
               <Code className="h-4 w-4 mr-2" />
               Open IDE
           </Button>
+          <Button variant="outline" render={<Link href={`/agents/${agentId}/pull`} />}>
+              <Plug className="h-4 w-4 mr-2" />
+              Pull
+          </Button>
           <Button variant="outline" render={<a href={`/api/agents/${agentId}/export`} download />}>
               <Download className="h-4 w-4 mr-2" />
               Export
@@ -107,7 +113,11 @@ export default function AgentDetailPage({
         <CollaboratorPanel agentId={agentId} />
       </div>
 
+      <SyncDashboard agentId={agentId} />
+
       <MemoryPanel agentId={agentId} />
+
+      <SecretsPanel agentId={agentId} />
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
