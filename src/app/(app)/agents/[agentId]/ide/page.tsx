@@ -12,6 +12,7 @@ import { EditorTabs, type EditorTab } from "@/components/ide/editor-tabs";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Download, Plus } from "lucide-react";
 import { SkillBuilderDialog } from "@/components/agents/skill-builder-dialog";
+import { VersionHistoryPanel } from "@/components/agents/version-history-panel";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -131,6 +132,22 @@ export default function AgentIDEPage({
             {agent?.description}
           </p>
         </div>
+        {activeTabId && (
+          <VersionHistoryPanel
+            agentId={agentId}
+            fileId={activeTabId}
+            fileName={tabs.find((t) => t.id === activeTabId)?.name || ""}
+            onRollback={() => {
+              // Reload file content after rollback
+              setFileContents((prev) => {
+                const next = { ...prev };
+                delete next[activeTabId];
+                return next;
+              });
+              if (activeTabId) loadFileContent(activeTabId);
+            }}
+          />
+        )}
         <Button variant="outline" size="sm" render={<a href={`/api/agents/${agentId}/export`} download />}>
             <Download className="h-3.5 w-3.5 mr-1.5" />
             Export

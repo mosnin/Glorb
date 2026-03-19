@@ -1,5 +1,21 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Bot, Network, MessageSquare } from "lucide-react";
+import {
+  Plus,
+  Bot,
+  Network,
+  MessageSquare,
+  Activity,
+  TrendingUp,
+  Zap,
+  Clock,
+  ArrowRight,
+  FileText,
+  FlaskConical,
+  Key,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -8,8 +24,60 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+
+interface DashboardStats {
+  counts: {
+    agents: number;
+    clusters: number;
+    chats: number;
+    runs_7d: number;
+    success_rate_7d: number | null;
+  };
+  recentAgents: { id: string; name: string; status: string; updated_at: string }[];
+  recentClusters: { id: string; name: string; status: string; updated_at: string }[];
+  recentActivity: {
+    id: string;
+    action: string;
+    entity_type: string;
+    entity_name: string | null;
+    created_at: string;
+  }[];
+}
+
+const activityIcon = (type: string) => {
+  switch (type) {
+    case "agent": return <Bot className="h-3.5 w-3.5" />;
+    case "cluster": return <Network className="h-3.5 w-3.5" />;
+    case "file": return <FileText className="h-3.5 w-3.5" />;
+    case "chat": return <MessageSquare className="h-3.5 w-3.5" />;
+    case "test": return <FlaskConical className="h-3.5 w-3.5" />;
+    case "api_key": return <Key className="h-3.5 w-3.5" />;
+    default: return <Activity className="h-3.5 w-3.5" />;
+  }
+};
+
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
 
 export default function DashboardPage() {
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+
+  useEffect(() => {
+    fetch("/api/dashboard/stats")
+      .then((res) => res.json())
+      .then(setStats)
+      .catch(() => {});
+  }, []);
+
   return (
     <div className="flex-1 p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -20,11 +88,57 @@ export default function DashboardPage() {
           </p>
         </div>
         <Button render={<Link href="/chat" />}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Chat
+          <Plus className="mr-2 h-4 w-4" />
+          New Chat
         </Button>
       </div>
 
+      {/* Stats Cards */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Agents</CardTitle>
+            <Bot className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.counts.agents ?? "..."}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Clusters</CardTitle>
+            <Network className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.counts.clusters ?? "..."}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Runs (7d)</CardTitle>
+            <Zap className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.counts.runs_7d ?? "..."}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {stats?.counts.success_rate_7d != null ? `${stats.counts.success_rate_7d}%` : "—"}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Quick Actions */}
       <div className="grid gap-4 md:grid-cols-3">
         <Link href="/chat">
           <Card className="hover:border-primary/50 transition-colors cursor-pointer">
@@ -39,78 +153,159 @@ export default function DashboardPage() {
                 </CardDescription>
               </div>
             </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Use the chat to create agents, clusters, define roles, handoffs,
-                and more.
-              </p>
-            </CardContent>
           </Card>
         </Link>
 
-        <Link href="/agents">
+        <Link href="/templates">
           <Card className="hover:border-primary/50 transition-colors cursor-pointer">
             <CardHeader className="flex flex-row items-center gap-3 pb-2">
               <div className="rounded-lg bg-primary/10 p-2">
-                <Bot className="h-5 w-5 text-primary" />
+                <Zap className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <CardTitle className="text-lg">Agents</CardTitle>
-                <CardDescription>
-                  View and edit your individual agents
-                </CardDescription>
+                <CardTitle className="text-lg">Templates</CardTitle>
+                <CardDescription>Fork pre-built agents and clusters</CardDescription>
               </div>
             </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Each agent has its own prompt, skills, tools, and role files.
-              </p>
-            </CardContent>
           </Card>
         </Link>
 
-        <Link href="/clusters">
+        <Link href="/settings">
           <Card className="hover:border-primary/50 transition-colors cursor-pointer">
             <CardHeader className="flex flex-row items-center gap-3 pb-2">
               <div className="rounded-lg bg-primary/10 p-2">
-                <Network className="h-5 w-5 text-primary" />
+                <Key className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <CardTitle className="text-lg">Clusters</CardTitle>
-                <CardDescription>
-                  Manage multi-agent architectures
-                </CardDescription>
+                <CardTitle className="text-lg">API & CLI</CardTitle>
+                <CardDescription>Manage keys, MCP config, CLI setup</CardDescription>
               </div>
             </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Clusters group agents with a manager, handoffs, and interaction
-                maps.
-              </p>
-            </CardContent>
           </Card>
         </Link>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
+        {/* Recent Agents */}
         <Card>
-          <CardHeader>
-            <CardTitle>Recent Agents</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base">Recent Agents</CardTitle>
+            <Button variant="ghost" size="sm" render={<Link href="/agents" />}>
+              View All <ArrowRight className="h-3.5 w-3.5 ml-1" />
+            </Button>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">
-              No agents yet. Start a chat to create your first agent.
-            </p>
+            {!stats?.recentAgents.length ? (
+              <p className="text-sm text-muted-foreground">
+                No agents yet. Start a chat to create your first agent.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {stats.recentAgents.map((agent) => (
+                  <Link
+                    key={agent.id}
+                    href={`/agents/${agent.id}`}
+                    className="flex items-center justify-between p-2 rounded-lg hover:bg-muted transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Bot className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">{agent.name}</span>
+                      <Badge
+                        variant={agent.status === "published" ? "default" : "secondary"}
+                        className="text-xs"
+                      >
+                        {agent.status}
+                      </Badge>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {timeAgo(agent.updated_at)}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
+
+        {/* Recent Clusters */}
         <Card>
-          <CardHeader>
-            <CardTitle>Recent Clusters</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base">Recent Clusters</CardTitle>
+            <Button variant="ghost" size="sm" render={<Link href="/clusters" />}>
+              View All <ArrowRight className="h-3.5 w-3.5 ml-1" />
+            </Button>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">
-              No clusters yet. Start a chat to create your first cluster.
-            </p>
+            {!stats?.recentClusters.length ? (
+              <p className="text-sm text-muted-foreground">
+                No clusters yet. Start a chat to create your first cluster.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {stats.recentClusters.map((cluster) => (
+                  <Link
+                    key={cluster.id}
+                    href={`/clusters/${cluster.id}`}
+                    className="flex items-center justify-between p-2 rounded-lg hover:bg-muted transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Network className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">{cluster.name}</span>
+                      <Badge
+                        variant={cluster.status === "published" ? "default" : "secondary"}
+                        className="text-xs"
+                      >
+                        {cluster.status}
+                      </Badge>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {timeAgo(cluster.updated_at)}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Activity Feed */}
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Recent Activity
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {!stats?.recentActivity.length ? (
+              <p className="text-sm text-muted-foreground">
+                No activity yet. Your actions will appear here.
+              </p>
+            ) : (
+              <div className="space-y-1">
+                {stats.recentActivity.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-3 py-2 border-b last:border-0"
+                  >
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted">
+                      {activityIcon(item.entity_type)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm">
+                        <span className="font-medium">{item.action}</span>
+                        {item.entity_name && (
+                          <span className="text-muted-foreground"> — {item.entity_name}</span>
+                        )}
+                      </p>
+                    </div>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {timeAgo(item.created_at)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

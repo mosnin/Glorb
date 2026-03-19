@@ -2,11 +2,12 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { Code, Download, FileText, ArrowLeft, Play } from "lucide-react";
+import { Code, Download, FileText, ArrowLeft, Play, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AgentRunner } from "@/components/agents/agent-runner";
+import { TestSandbox } from "@/components/agents/test-sandbox";
 
 interface AgentDetail {
   id: string;
@@ -80,6 +81,8 @@ export default function AgentDetailPage({
           <AgentRunner agentId={agentId} />
         </CardContent>
       </Card>
+
+      <TestSandbox agentId={agentId} />
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>

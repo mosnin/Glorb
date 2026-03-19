@@ -58,6 +58,37 @@ export async function PATCH(
 
   // Update content in storage if provided
   if (body.content !== undefined) {
+    // Auto-snapshot previous version before overwriting
+    const { data: currentBlob } = await supabase.storage
+      .from("agent-files")
+      .download(file.storage_path);
+
+    if (currentBlob) {
+      const { agentId } = await params;
+      const { data: lastVersion } = await supabase
+        .from("file_versions")
+        .select("version_number")
+        .eq("file_id", fileId)
+        .order("version_number", { ascending: false })
+        .limit(1)
+        .single();
+
+      const nextVersion = (lastVersion?.version_number || 0) + 1;
+      const versionPath = `${userId}/agents/${agentId}/versions/${fileId}/v${nextVersion}`;
+
+      await supabase.storage.from("agent-files").upload(versionPath, currentBlob, { upsert: true });
+      await supabase.from("file_versions").insert({
+        agent_id: agentId,
+        file_id: fileId,
+        version_number: nextVersion,
+        storage_path: versionPath,
+        size_bytes: file.size_bytes,
+        change_source: body.change_source || "manual",
+        change_summary: body.change_summary || null,
+        created_by: userId,
+      });
+    }
+
     const { error: storageError } = await supabase.storage
       .from("agent-files")
       .upload(file.storage_path, new Blob([body.content], { type: "text/plain" }), {
