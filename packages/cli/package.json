@@ -1,0 +1,15 @@
+{
+  "name": "glorb",
+  "version": "0.1.0",
+  "description": "CLI for the Glorb Agent Architecture Platform",
+  "bin": {
+    "glorb": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "devDependencies": {
+    "typescript": "^5"
+  }
+}

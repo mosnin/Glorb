@@ -1,35 +1,7 @@
 import { NextRequest } from "next/server";
 import { createGlorbMcpServer } from "@/lib/mcp/server";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import { createAdminSupabaseClient } from "@/lib/supabase/admin";
-import crypto from "crypto";
-
-// Authenticate via API key bearer token
-async function authenticateRequest(req: NextRequest): Promise<string | null> {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
-
-  const token = authHeader.slice(7);
-  const keyHash = crypto.createHash("sha256").update(token).digest("hex");
-
-  const supabase = createAdminSupabaseClient();
-  const { data } = await supabase
-    .from("api_keys")
-    .select("user_id")
-    .eq("key_hash", keyHash)
-    .is("revoked_at", null)
-    .single();
-
-  if (!data) return null;
-
-  // Update last used
-  await supabase
-    .from("api_keys")
-    .update({ last_used_at: new Date().toISOString() })
-    .eq("key_hash", keyHash);
-
-  return data.user_id;
-}
+import { authenticateRequest } from "@/lib/auth/api-key";
 
 export async function POST(req: NextRequest) {
   const userId = await authenticateRequest(req);

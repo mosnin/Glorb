@@ -7,6 +7,7 @@ import {
   MessageSquare,
   Bot,
   Network,
+  Library,
   Settings,
 } from "lucide-react";
 import {
@@ -28,6 +29,7 @@ const navItems = [
   { title: "Chat", href: "/chat", icon: MessageSquare },
   { title: "Agents", href: "/agents", icon: Bot },
   { title: "Clusters", href: "/clusters", icon: Network },
+  { title: "Templates", href: "/templates", icon: Library },
   { title: "Settings", href: "/settings", icon: Settings },
 ];
 

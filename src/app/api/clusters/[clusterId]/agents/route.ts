@@ -46,6 +46,36 @@ export async function POST(
   return NextResponse.json(data, { status: 201 });
 }
 
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ clusterId: string }> }
+) {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { clusterId } = await params;
+  const { agent_id, position_x, position_y, role_in_cluster } = await req.json();
+
+  if (!agent_id) return NextResponse.json({ error: "agent_id required" }, { status: 400 });
+
+  const supabase = await createServerSupabaseClient();
+  const updates: Record<string, unknown> = {};
+  if (position_x !== undefined) updates.position_x = position_x;
+  if (position_y !== undefined) updates.position_y = position_y;
+  if (role_in_cluster !== undefined) updates.role_in_cluster = role_in_cluster;
+
+  const { data, error } = await supabase
+    .from("cluster_agents")
+    .update(updates)
+    .eq("cluster_id", clusterId)
+    .eq("agent_id", agent_id)
+    .select("*, agent:agents(*)")
+    .single();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json(data);
+}
+
 export async function DELETE(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

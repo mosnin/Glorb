@@ -79,7 +79,7 @@ export async function executeToolCall(
       }
 
       // Create default config.json
-      const config = { model: "gpt-4o", temperature: 0.7, max_tokens: 4096 };
+      const config = { model: "claude-sonnet-4-20250514", temperature: 0.7, max_tokens: 4096 };
       const configPath = storagePath(userId, "agents", agent.id, "config.json");
       await uploadFile("agent-files", configPath, JSON.stringify(config, null, 2));
 

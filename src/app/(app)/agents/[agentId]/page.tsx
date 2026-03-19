@@ -2,10 +2,11 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { Code, Download, FileText, ArrowLeft } from "lucide-react";
+import { Code, Download, FileText, ArrowLeft, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { AgentRunner } from "@/components/agents/agent-runner";
 
 interface AgentDetail {
   id: string;
@@ -67,6 +68,18 @@ export default function AgentDetailPage({
           </Button>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Play className="h-4 w-4" />
+            Run Agent
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AgentRunner agentId={agentId} />
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>

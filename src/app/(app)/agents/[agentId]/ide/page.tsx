@@ -10,7 +10,8 @@ import { FileTree, buildFileTree, type FileNode } from "@/components/ide/file-tr
 import { EditorPanel } from "@/components/ide/editor-panel";
 import { EditorTabs, type EditorTab } from "@/components/ide/editor-tabs";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download } from "lucide-react";
+import { ArrowLeft, Download, Plus } from "lucide-react";
+import { SkillBuilderDialog } from "@/components/agents/skill-builder-dialog";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -33,9 +34,9 @@ export default function AgentIDEPage({
   const [tabs, setTabs] = useState<EditorTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [fileContents, setFileContents] = useState<Record<string, string>>({});
+  const [showSkillBuilder, setShowSkillBuilder] = useState(false);
 
-  // Load agent and files
-  useEffect(() => {
+  const loadAgent = useCallback(() => {
     fetch(`/api/agents/${agentId}`)
       .then((res) => res.json())
       .then((data) => {
@@ -45,6 +46,9 @@ export default function AgentIDEPage({
         setFileTree(buildFileTree(agentFiles, data.name));
       });
   }, [agentId]);
+
+  // Load agent and files
+  useEffect(() => { loadAgent(); }, [loadAgent]);
 
   // Load file content
   const loadFileContent = useCallback(
@@ -138,8 +142,11 @@ export default function AgentIDEPage({
         {/* File Tree */}
         <ResizablePanel defaultSize={20} minSize={15} maxSize={35}>
           <div className="h-full overflow-auto border-r">
-            <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Files
+            <div className="flex items-center justify-between px-3 py-2">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Files</span>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowSkillBuilder(true)}>
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
             </div>
             <FileTree
               files={fileTree}
@@ -182,6 +189,13 @@ export default function AgentIDEPage({
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>
+
+      <SkillBuilderDialog
+        agentId={agentId}
+        open={showSkillBuilder}
+        onOpenChange={setShowSkillBuilder}
+        onCreated={loadAgent}
+      />
     </div>
   );
 }

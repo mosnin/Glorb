@@ -2,10 +2,11 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { Eye, Code, Download, ArrowLeft, Bot } from "lucide-react";
+import { Eye, Code, Download, ArrowLeft, Bot, Play, Blocks } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ClusterRunner } from "@/components/clusters/cluster-runner";
 
 interface ClusterDetail {
   id: string;
@@ -60,7 +61,11 @@ export default function ClusterDetailPage({
           )}
         </div>
         <div className="flex gap-2">
-          <Button render={<Link href={`/clusters/${clusterId}/visualize`} />}>
+          <Button render={<Link href={`/clusters/${clusterId}/builder`} />}>
+              <Blocks className="h-4 w-4 mr-2" />
+              Builder
+          </Button>
+          <Button variant="outline" render={<Link href={`/clusters/${clusterId}/visualize`} />}>
               <Eye className="h-4 w-4 mr-2" />
               Visualize
           </Button>
@@ -74,6 +79,18 @@ export default function ClusterDetailPage({
           </Button>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Play className="h-4 w-4" />
+            Run Cluster
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ClusterRunner clusterId={clusterId} />
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>

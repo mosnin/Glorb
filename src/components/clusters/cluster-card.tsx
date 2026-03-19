@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Network, Code, Download, Eye } from "lucide-react";
+import { Network, Code, Download, Eye, Blocks } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,10 @@ export function ClusterCard({ cluster }: ClusterCardProps) {
           </p>
         )}
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" render={<Link href={`/clusters/${cluster.id}/builder`} />}>
+              <Blocks className="h-3.5 w-3.5 mr-1.5" />
+              Builder
+          </Button>
           <Button variant="outline" size="sm" render={<Link href={`/clusters/${cluster.id}/visualize`} />}>
               <Eye className="h-3.5 w-3.5 mr-1.5" />
               Visualize

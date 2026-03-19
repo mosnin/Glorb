@@ -164,6 +164,108 @@ export function createGlorbMcpServer() {
     }
   );
 
+  // Tool: Pull agent manifest
+  server.tool(
+    "pull_agent",
+    "Get a complete agent manifest ready for local use, including all file contents",
+    { agent_id: z.string().describe("The agent ID to pull") },
+    async ({ agent_id }) => {
+      const supabase = createAdminSupabaseClient();
+
+      const { data: agent, error } = await supabase
+        .from("agents")
+        .select("*, agent_files(*)")
+        .eq("id", agent_id)
+        .single();
+
+      if (error || !agent) {
+        return { content: [{ type: "text" as const, text: "Agent not found" }] };
+      }
+
+      const files: Record<string, string> = {};
+      for (const file of agent.agent_files || []) {
+        const { data: blob } = await supabase.storage.from("agent-files").download(file.storage_path);
+        if (blob) files[file.file_path] = await blob.text();
+      }
+
+      const manifest = {
+        type: "agent",
+        id: agent.id,
+        name: agent.name,
+        description: agent.description,
+        configuration: agent.configuration,
+        files,
+      };
+
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(manifest, null, 2) }],
+      };
+    }
+  );
+
+  // Tool: Pull cluster manifest
+  server.tool(
+    "pull_cluster",
+    "Get a complete cluster manifest ready for local use, including all agents and file contents",
+    { cluster_id: z.string().describe("The cluster ID to pull") },
+    async ({ cluster_id }) => {
+      const supabase = createAdminSupabaseClient();
+
+      const { data: cluster, error } = await supabase
+        .from("clusters")
+        .select("*, cluster_agents(*, agent:agents(*)), cluster_files(*)")
+        .eq("id", cluster_id)
+        .single();
+
+      if (error || !cluster) {
+        return { content: [{ type: "text" as const, text: "Cluster not found" }] };
+      }
+
+      const clusterFiles: Record<string, string> = {};
+      for (const file of cluster.cluster_files || []) {
+        const { data: blob } = await supabase.storage.from("agent-files").download(file.storage_path);
+        if (blob) clusterFiles[file.file_path] = await blob.text();
+      }
+
+      const agents = [];
+      for (const ca of cluster.cluster_agents || []) {
+        const agent = ca.agent;
+        if (!agent) continue;
+
+        const { data: agentFiles } = await supabase.from("agent_files").select("*").eq("agent_id", agent.id);
+        const files: Record<string, string> = {};
+        for (const f of agentFiles || []) {
+          const { data: blob } = await supabase.storage.from("agent-files").download(f.storage_path);
+          if (blob) files[f.file_path] = await blob.text();
+        }
+
+        agents.push({
+          id: agent.id,
+          name: agent.name,
+          description: agent.description,
+          role: ca.role_in_cluster,
+          configuration: agent.configuration,
+          files,
+        });
+      }
+
+      const manifest = {
+        type: "cluster",
+        id: cluster.id,
+        name: cluster.name,
+        description: cluster.description,
+        manager_agent_id: cluster.manager_agent_id,
+        handoff_definitions: cluster.handoff_definitions,
+        cluster_files: clusterFiles,
+        agents,
+      };
+
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(manifest, null, 2) }],
+      };
+    }
+  );
+
   // Tool: Architect a new agent (delegates to AI)
   server.tool(
     "architect_agent",
