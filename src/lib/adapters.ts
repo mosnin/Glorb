@@ -1,0 +1,366 @@
+import type { GlorbAgentManifest, GlorbClusterManifest } from "./manifest";
+
+export type Framework = "claude-code" | "cursor" | "python" | "raw";
+
+export interface AdapterOutput {
+  framework: string;
+  files: Record<string, string>;
+  instructions: string;
+}
+
+export function generateAdapter(
+  manifest: GlorbAgentManifest,
+  framework: Framework,
+  apiKey: string,
+  baseUrl: string
+): AdapterOutput {
+  switch (framework) {
+    case "claude-code":
+      return generateClaudeCodeAdapter(manifest, apiKey, baseUrl);
+    case "cursor":
+      return generateCursorAdapter(manifest, apiKey, baseUrl);
+    case "python":
+      return generatePythonAdapter(manifest, apiKey, baseUrl);
+    case "raw":
+      return generateRawAdapter(manifest, apiKey, baseUrl);
+    default:
+      return generateRawAdapter(manifest, apiKey, baseUrl);
+  }
+}
+
+function generateClaudeCodeAdapter(
+  manifest: GlorbAgentManifest,
+  apiKey: string,
+  baseUrl: string
+): AdapterOutput {
+  const claudeMd = `# ${manifest.name}
+
+${manifest.description || ""}
+
+${manifest.prompt || ""}
+
+${manifest.role ? `## Role\n\n${manifest.role}` : ""}
+
+## Agent Identity
+
+This agent is managed by Glorb. Agent ID: \`${manifest.id}\`
+Source: ${manifest.sync.events_url}
+
+${manifest.clusters.length > 0 ? `## Cluster Context
+
+${manifest.clusters.map((c) => `### ${c.cluster_name} (Role: ${c.role_in_cluster || "member"})
+
+Peer agents: ${c.peer_agents.map((p) => `${p.name} (${p.role || "member"})`).join(", ")}
+
+${c.context_docs.map((d) => `#### ${d.title}\n${d.content}`).join("\n\n")}
+`).join("\n")}` : ""}
+
+${manifest.memories.length > 0 ? `## Memories
+
+${manifest.memories.map((m) => `- **${m.key}**: ${m.value}`).join("\n")}` : ""}
+`;
+
+  const mcpConfig = JSON.stringify({
+    mcpServers: {
+      glorb: {
+        url: `${baseUrl}/api/mcp`,
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+        },
+      },
+    },
+  }, null, 2);
+
+  // Sync hook script
+  const syncHook = `#!/bin/bash
+# Glorb sync hook — reports activity back to Glorb
+# Add to .claude/hooks or run manually
+
+curl -s -X POST "${manifest.sync.events_url}" \\
+  -H "Authorization: Bearer ${apiKey}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "event_type": "run_completed",
+    "source_framework": "claude-code",
+    "payload": {"message": "Session completed"}
+  }'
+`;
+
+  const instructions = `## Claude Code Setup
+
+1. Copy \`CLAUDE.md\` to your project root
+2. Add MCP config to \`.claude/settings.json\` or your global Claude settings
+3. The agent's prompt, role, and cluster context are embedded in CLAUDE.md
+4. Use the Glorb MCP tools to pull updates, list agents, or sync activity
+
+### Sync Activity
+Run the sync hook or use the MCP \`pull_agent\` tool to refresh context.
+`;
+
+  return {
+    framework: "claude-code",
+    files: {
+      "CLAUDE.md": claudeMd,
+      ".claude/settings.json": mcpConfig,
+      "glorb-sync.sh": syncHook,
+    },
+    instructions,
+  };
+}
+
+function generateCursorAdapter(
+  manifest: GlorbAgentManifest,
+  apiKey: string,
+  baseUrl: string
+): AdapterOutput {
+  const cursorRules = `# ${manifest.name}
+
+${manifest.description || ""}
+
+${manifest.prompt || ""}
+
+${manifest.role ? `## Role\n\n${manifest.role}` : ""}
+
+## Agent Identity
+Glorb Agent ID: ${manifest.id}
+
+${manifest.memories.length > 0 ? `## Known Facts\n${manifest.memories.map((m) => `- ${m.key}: ${m.value}`).join("\n")}` : ""}
+
+${manifest.clusters.length > 0 ? `## Cluster Context\n${manifest.clusters.map((c) =>
+    `Working in cluster "${c.cluster_name}" as ${c.role_in_cluster || "member"}.
+Peers: ${c.peer_agents.map((p) => p.name).join(", ")}
+${c.context_docs.map((d) => `\n### ${d.title}\n${d.content}`).join("")}`
+  ).join("\n")}` : ""}
+`;
+
+  // Skills as tool definitions comment block
+  const skillDefs = manifest.skills.length > 0
+    ? `## Available Tools\n\n${manifest.skills.map((s) =>
+        `### ${s.name}\n${s.description}\nInput: \`${JSON.stringify(s.input_schema)}\``
+      ).join("\n\n")}`
+    : "";
+
+  const instructions = `## Cursor Setup
+
+1. Copy \`.cursorrules\` to your project root
+2. Cursor will use the agent's prompt and context for all interactions
+3. Skills are documented in the rules file for reference
+`;
+
+  return {
+    framework: "cursor",
+    files: {
+      ".cursorrules": cursorRules + (skillDefs ? `\n\n${skillDefs}` : ""),
+    },
+    instructions,
+  };
+}
+
+function generatePythonAdapter(
+  manifest: GlorbAgentManifest,
+  apiKey: string,
+  baseUrl: string
+): AdapterOutput {
+  const toolDefs = manifest.skills.map((s) => `    {
+        "name": "${s.name}",
+        "description": ${JSON.stringify(s.description)},
+        "input_schema": ${JSON.stringify(s.input_schema)}
+    }`).join(",\n");
+
+  const memories = manifest.memories.map((m) =>
+    `    "${m.key}": ${JSON.stringify(m.value)}`
+  ).join(",\n");
+
+  const agentPy = `"""
+${manifest.name} — Glorb Agent Adapter
+Auto-generated by Glorb. Agent ID: ${manifest.id}
+
+This module provides the agent's configuration for use with any Python framework.
+"""
+
+import json
+import urllib.request
+
+GLORB_API_KEY = "${apiKey}"
+GLORB_BASE_URL = "${baseUrl}"
+AGENT_ID = "${manifest.id}"
+SYNC_URL = "${manifest.sync.events_url}"
+
+# Agent configuration
+AGENT_NAME = ${JSON.stringify(manifest.name)}
+AGENT_DESCRIPTION = ${JSON.stringify(manifest.description || "")}
+SYSTEM_PROMPT = ${JSON.stringify(manifest.prompt || `You are ${manifest.name}. ${manifest.description || ""}`)}
+${manifest.role ? `ROLE = ${JSON.stringify(manifest.role)}` : "ROLE = None"}
+
+# Tool definitions (Claude-native format)
+TOOLS = [
+${toolDefs}
+]
+
+# Persistent memories
+MEMORIES = {
+${memories}
+}
+
+def sync_event(event_type: str, payload: dict = None, source: str = "python"):
+    """Report activity back to Glorb for cross-framework visibility."""
+    data = json.dumps({
+        "event_type": event_type,
+        "source_framework": source,
+        "payload": payload or {}
+    }).encode()
+    req = urllib.request.Request(
+        SYNC_URL,
+        data=data,
+        headers={
+            "Authorization": f"Bearer {GLORB_API_KEY}",
+            "Content-Type": "application/json"
+        },
+        method="POST"
+    )
+    try:
+        urllib.request.urlopen(req, timeout=5)
+    except Exception:
+        pass  # Fire-and-forget
+
+def get_activity_feed(limit: int = 50) -> list:
+    """Fetch recent activity from all frameworks running this agent."""
+    req = urllib.request.Request(
+        f"{SYNC_URL}?limit={limit}",
+        headers={"Authorization": f"Bearer {GLORB_API_KEY}"}
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read())
+    except Exception:
+        return []
+
+def refresh_manifest() -> dict:
+    """Pull the latest agent manifest from Glorb."""
+    req = urllib.request.Request(
+        f"{GLORB_BASE_URL}/api/v1/agents/{AGENT_ID}/manifest",
+        headers={"Authorization": f"Bearer {GLORB_API_KEY}"}
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return json.loads(resp.read())
+
+
+# --- Framework-specific loaders ---
+
+def to_langchain_tools():
+    """Convert Glorb skills to LangChain tool format."""
+    from langchain_core.tools import StructuredTool
+    tools = []
+    for skill in TOOLS:
+        def make_fn(s):
+            def fn(**kwargs):
+                sync_event("tool_called", {"tool": s["name"], "input": kwargs})
+                return f"Tool {s['name']} called with: {kwargs}"
+            fn.__name__ = s["name"]
+            fn.__doc__ = s["description"]
+            return fn
+        tools.append(StructuredTool.from_function(
+            func=make_fn(skill),
+            name=skill["name"],
+            description=skill["description"],
+        ))
+    return tools
+
+def to_crewai_agent():
+    """Create a CrewAI Agent instance from this Glorb agent."""
+    from crewai import Agent
+    return Agent(
+        role=AGENT_NAME,
+        goal=AGENT_DESCRIPTION,
+        backstory=SYSTEM_PROMPT,
+        verbose=True,
+    )
+
+
+if __name__ == "__main__":
+    print(f"Glorb Agent: {AGENT_NAME}")
+    print(f"ID: {AGENT_ID}")
+    print(f"Tools: {len(TOOLS)}")
+    print(f"Memories: {len(MEMORIES)}")
+    sync_event("heartbeat", {"message": "Agent adapter loaded"})
+    print("Heartbeat sent to Glorb.")
+`;
+
+  const instructions = `## Python Setup
+
+1. Copy \`glorb_agent.py\` to your project
+2. Import and use the configuration:
+
+\`\`\`python
+from glorb_agent import SYSTEM_PROMPT, TOOLS, MEMORIES, sync_event
+
+# Use with Anthropic SDK
+import anthropic
+client = anthropic.Anthropic()
+response = client.messages.create(
+    model="claude-sonnet-4-20250514",
+    system=SYSTEM_PROMPT,
+    tools=TOOLS,
+    messages=[{"role": "user", "content": "Hello"}]
+)
+
+# Report activity back
+sync_event("run_completed", {"response_length": len(str(response))})
+\`\`\`
+
+3. For LangChain: \`tools = to_langchain_tools()\`
+4. For CrewAI: \`agent = to_crewai_agent()\`
+`;
+
+  return {
+    framework: "python",
+    files: {
+      "glorb_agent.py": agentPy,
+    },
+    instructions,
+  };
+}
+
+function generateRawAdapter(
+  manifest: GlorbAgentManifest,
+  apiKey: string,
+  baseUrl: string
+): AdapterOutput {
+  const instructions = `## Raw Agent Data
+
+The glorb.json manifest contains everything you need:
+- \`prompt\`: The agent's system prompt
+- \`role\`: The agent's role definition
+- \`skills\`: Tool definitions in Claude tool_use format
+- \`config\`: Model configuration (model, temperature, max_tokens)
+- \`files\`: All raw files with content
+- \`memories\`: Persistent key-value memories
+- \`clusters\`: Cluster context with peer agents and shared docs
+- \`sync\`: URLs for reporting activity and reading the feed
+
+### Sync API
+
+**Report activity:**
+\`\`\`
+POST ${manifest.sync.events_url}
+Authorization: Bearer ${apiKey}
+Content-Type: application/json
+
+{"event_type": "run_completed", "source_framework": "my-framework", "payload": {}}
+\`\`\`
+
+**Read feed:**
+\`\`\`
+GET ${manifest.sync.activity_feed_url}
+Authorization: Bearer ${apiKey}
+\`\`\`
+`;
+
+  return {
+    framework: "raw",
+    files: {
+      "glorb.json": JSON.stringify(manifest, null, 2),
+    },
+    instructions,
+  };
+}

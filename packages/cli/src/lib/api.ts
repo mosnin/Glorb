@@ -43,10 +43,46 @@ export function apiGet(path: string): Promise<{ status: number; data: unknown }>
   });
 }
 
-export function apiGetBuffer(path: string): Promise<{ status: number; data: Buffer }> {
+export function apiPost(apiPath: string, body: unknown): Promise<{ status: number; data: unknown }> {
   const baseUrl = getApiUrl();
   const apiKey = getApiKey();
-  const url = new URL(`/api/v1${path}`, baseUrl);
+  const url = new URL(`/api/v1${apiPath}`, baseUrl);
+  const payload = JSON.stringify(body);
+
+  return new Promise((resolve, reject) => {
+    const mod = url.protocol === "https:" ? https : http;
+    const req = mod.request(
+      url.toString(),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(payload).toString(),
+        },
+      },
+      (res) => {
+        let respBody = "";
+        res.on("data", (chunk: Buffer) => (respBody += chunk.toString()));
+        res.on("end", () => {
+          try {
+            resolve({ status: res.statusCode || 0, data: JSON.parse(respBody) });
+          } catch {
+            resolve({ status: res.statusCode || 0, data: respBody });
+          }
+        });
+      }
+    );
+    req.on("error", reject);
+    req.write(payload);
+    req.end();
+  });
+}
+
+export function apiGetBuffer(apiPath: string): Promise<{ status: number; data: Buffer }> {
+  const baseUrl = getApiUrl();
+  const apiKey = getApiKey();
+  const url = new URL(`/api/v1${apiPath}`, baseUrl);
 
   return new Promise((resolve, reject) => {
     const mod = url.protocol === "https:" ? https : http;
