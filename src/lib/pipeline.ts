@@ -216,9 +216,16 @@ export async function processRunCompletion(opts: {
   }
 }
 
+// Cooldown cache: prevents duplicate pre_edit snapshots within 5 minutes
+const snapshotCooldowns = new Map<string, number>();
+const SNAPSHOT_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+
 /**
  * Creates an auto-snapshot of an agent (for publish/export/pre_edit triggers).
  * Runs fire-and-forget — failures are silently ignored.
+ *
+ * For pre_edit triggers, enforces a 5-minute cooldown per agent to prevent
+ * rapid successive edits from flooding the snapshots table.
  */
 export async function createAutoSnapshot(opts: {
   agentId: string;
@@ -226,6 +233,25 @@ export async function createAutoSnapshot(opts: {
   trigger: "publish" | "export" | "pre_edit" | "auto";
 }) {
   const { agentId, userId, trigger } = opts;
+
+  // Enforce cooldown for pre_edit snapshots
+  if (trigger === "pre_edit") {
+    const cooldownKey = `${agentId}:pre_edit`;
+    const lastSnapshot = snapshotCooldowns.get(cooldownKey);
+    if (lastSnapshot && Date.now() - lastSnapshot < SNAPSHOT_COOLDOWN_MS) {
+      return; // Skip — too recent
+    }
+    snapshotCooldowns.set(cooldownKey, Date.now());
+
+    // Prevent unbounded memory growth
+    if (snapshotCooldowns.size > 1000) {
+      const cutoff = Date.now() - SNAPSHOT_COOLDOWN_MS;
+      for (const [key, time] of snapshotCooldowns) {
+        if (time < cutoff) snapshotCooldowns.delete(key);
+      }
+    }
+  }
+
   const supabase = createAdminSupabaseClient();
 
   const { data: agent } = await supabase
