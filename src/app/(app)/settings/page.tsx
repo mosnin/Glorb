@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Github, Key, Copy, Check, Trash2, Loader2, Terminal } from "lucide-react";
+import { ApiError } from "@/components/api-error";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +36,22 @@ export default function SettingsPage() {
   const [newRawKey, setNewRawKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [revokeId, setRevokeId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadKeys = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/api-keys");
+      if (!res.ok) throw new Error(`Failed to load API keys (${res.status})`);
+      const data = await res.json();
+      setApiKeys(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load API keys");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -43,14 +60,8 @@ export default function SettingsPage() {
       toast.success("GitHub connected successfully");
     }
 
-    fetch("/api/api-keys")
-      .then((res) => res.json())
-      .then((data) => {
-        setApiKeys(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
+    loadKeys();
+  }, [loadKeys]);
 
   async function handleCreateKey() {
     if (!newKeyName.trim()) { toast.error("Enter a key name"); return; }
@@ -152,6 +163,8 @@ export default function SettingsPage() {
             <div className="flex items-center justify-center py-4">
               <Loader2 className="h-4 w-4 animate-spin" />
             </div>
+          ) : error ? (
+            <ApiError message={error} onRetry={loadKeys} compact />
           ) : apiKeys.length > 0 ? (
             <div className="space-y-2">
               {apiKeys.map((key) => (

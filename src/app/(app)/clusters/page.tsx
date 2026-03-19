@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Network } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
+import { Network, MessageSquare } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { ClusterCard } from "@/components/clusters/cluster-card";
+import { ApiError } from "@/components/api-error";
 
 export default function ClustersPage() {
   const [clusters, setClusters] = useState<
@@ -15,16 +18,25 @@ export default function ClustersPage() {
     }[]
   >([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/clusters");
+      if (!res.ok) throw new Error(`Failed to load clusters (${res.status})`);
+      setClusters(await res.json());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load clusters");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    fetch("/api/clusters")
-      .then((res) => res.json())
-      .then((data) => {
-        setClusters(data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
+    loadData();
+  }, [loadData]);
 
   return (
     <div className="flex-1 p-6 space-y-6">
@@ -38,21 +50,35 @@ export default function ClustersPage() {
       {loading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-40 rounded-lg bg-muted animate-pulse" />
+            <div key={i} className="h-40 rounded-lg bg-gradient-to-br from-muted to-muted/50 animate-pulse" />
           ))}
         </div>
+      ) : error ? (
+        <ApiError message={error} onRetry={loadData} />
       ) : clusters.length === 0 ? (
-        <div className="text-center py-12">
-          <Network className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-          <h2 className="text-lg font-semibold">No clusters yet</h2>
-          <p className="text-muted-foreground text-sm mt-1">
-            Start a chat to create your first cluster of agents.
+        <div className="flex flex-col items-center py-16 animate-fade-in-up">
+          <div className="relative mb-4">
+            <div className="absolute inset-0 rounded-full bg-blue-500/20 blur-xl" />
+            <div className="relative rounded-full bg-gradient-to-br from-blue-500/10 to-cyan-500/10 p-6">
+              <Network className="h-10 w-10 text-blue-500" />
+            </div>
+          </div>
+          <h2 className="text-lg font-semibold mb-1">No clusters yet</h2>
+          <p className="text-muted-foreground text-sm mb-4 text-center max-w-sm">
+            Clusters are teams of agents that collaborate — with managers, handoffs,
+            and orchestration rules. Describe your workflow to get started.
           </p>
+          <Button render={<Link href="/chat" />}>
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Start Building
+          </Button>
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {clusters.map((cluster) => (
-            <ClusterCard key={cluster.id} cluster={cluster} />
+          {clusters.map((cluster, i) => (
+            <div key={cluster.id} className={`animate-fade-in-up stagger-${Math.min(i + 1, 4)}`}>
+              <ClusterCard cluster={cluster} />
+            </div>
           ))}
         </div>
       )}

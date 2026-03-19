@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { runCluster, type ClusterRunEvent } from "@/lib/ai/cluster-runtime";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { dispatchWebhook } from "@/lib/webhooks";
-import { processRunCompletion } from "@/lib/pipeline";
+import { processRunCompletion, checkBudget } from "@/lib/pipeline";
 
 export async function POST(
   req: NextRequest,
@@ -18,6 +18,22 @@ export async function POST(
   if (!message) return new Response("message is required", { status: 400 });
 
   const supabase = createAdminSupabaseClient();
+
+  // Look up the agents in this cluster for budget check
+  const { data: clusterCheck } = await supabase
+    .from("clusters")
+    .select("cluster_agents(agent_id)")
+    .eq("id", clusterId)
+    .single();
+
+  const firstAgentId = (clusterCheck?.cluster_agents as { agent_id: string }[])?.[0]?.agent_id;
+  if (firstAgentId) {
+    const budgetError = await checkBudget({ agentId: firstAgentId, userId });
+    if (budgetError) {
+      return Response.json({ error: budgetError }, { status: 429 });
+    }
+  }
+
   const startTime = Date.now();
 
   // Save user message if session provided
@@ -29,15 +45,8 @@ export async function POST(
     });
   }
 
-  // Look up the agents in this cluster so we can track per-agent usage
-  const { data: clusterData } = await supabase
-    .from("clusters")
-    .select("cluster_agents(agent_id)")
-    .eq("id", clusterId)
-    .single();
-
-  const clusterAgentIds = (clusterData?.cluster_agents || []).map(
-    (ca: { agent_id: string }) => ca.agent_id
+  const clusterAgentIds = ((clusterCheck?.cluster_agents || []) as { agent_id: string }[]).map(
+    (ca) => ca.agent_id
   );
 
   dispatchWebhook(userId, "cluster.run.started", { cluster_id: clusterId }).catch(() => {});

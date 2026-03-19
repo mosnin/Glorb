@@ -216,6 +216,38 @@ export async function processRunCompletion(opts: {
   }
 }
 
+/**
+ * Pre-run budget check. Returns null if the run is allowed,
+ * or an error message string if a budget would be exceeded.
+ *
+ * Call this before starting an agent run to enforce spending limits.
+ */
+export async function checkBudget(opts: {
+  agentId: string;
+  userId: string;
+}): Promise<string | null> {
+  const supabase = createAdminSupabaseClient();
+
+  const { data: budgets } = await supabase
+    .from("agent_token_budgets")
+    .select("id, monthly_budget_usd, current_month_usage_usd, alert_threshold_pct, agent_id")
+    .eq("enabled", true)
+    .eq("user_id", opts.userId)
+    .or(`agent_id.eq.${opts.agentId},agent_id.is.null`);
+
+  for (const budget of budgets || []) {
+    const usage = Number(budget.current_month_usage_usd);
+    const limit = Number(budget.monthly_budget_usd);
+
+    if (usage >= limit) {
+      const scope = budget.agent_id ? "This agent's" : "Your account";
+      return `${scope} monthly budget of $${limit.toFixed(2)} has been reached ($${usage.toFixed(2)} used). Increase the budget in Analytics to continue.`;
+    }
+  }
+
+  return null;
+}
+
 // Cooldown cache: prevents duplicate pre_edit snapshots within 5 minutes
 const snapshotCooldowns = new Map<string, number>();
 const SNAPSHOT_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes

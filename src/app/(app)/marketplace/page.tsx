@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Bot, Network, Star, GitFork, Loader2, Globe, TrendingUp } from "lucide-react";
+import { ApiError } from "@/components/api-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,21 +41,30 @@ export default function MarketplacePage() {
   const [typeFilter, setTypeFilter] = useState<"all" | "agent" | "cluster">("all");
   const [forkingId, setForkingId] = useState<string | null>(null);
   const [forkDialog, setForkDialog] = useState<Listing | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadData = useCallback(async () => {
     const params = new URLSearchParams();
     if (typeFilter !== "all") params.set("type", typeFilter);
     if (search) params.set("search", search);
 
     setLoading(true);
-    fetch(`/api/marketplace?${params}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setListings(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    setError(null);
+    try {
+      const res = await fetch(`/api/marketplace?${params}`);
+      if (!res.ok) throw new Error(`Failed to load marketplace (${res.status})`);
+      const data = await res.json();
+      setListings(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load marketplace");
+    } finally {
+      setLoading(false);
+    }
   }, [typeFilter, search]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   async function handleFork(listing: Listing) {
     setForkingId(listing.id);
@@ -127,6 +137,8 @@ export default function MarketplacePage() {
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
+      ) : error ? (
+        <ApiError message={error} onRetry={loadData} />
       ) : listings.length === 0 ? (
         <div className="text-center py-12">
           <Globe className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />

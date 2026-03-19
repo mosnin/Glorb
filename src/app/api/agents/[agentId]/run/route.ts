@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { runAgent } from "@/lib/ai/agent-runtime";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { dispatchWebhook } from "@/lib/webhooks";
-import { processRunCompletion } from "@/lib/pipeline";
+import { processRunCompletion, checkBudget } from "@/lib/pipeline";
 
 export async function POST(
   req: NextRequest,
@@ -16,6 +16,12 @@ export async function POST(
   const { message, session_id, conversation_history, trigger_type } = await req.json();
 
   if (!message) return new Response("message is required", { status: 400 });
+
+  // Enforce budget limits before starting the run
+  const budgetError = await checkBudget({ agentId, userId });
+  if (budgetError) {
+    return Response.json({ error: budgetError }, { status: 429 });
+  }
 
   const supabase = createAdminSupabaseClient();
   const startTime = Date.now();

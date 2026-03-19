@@ -20,6 +20,9 @@ import {
   AlertTriangle,
   WifiOff,
   Loader2,
+  Sparkles,
+  Library,
+  BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -86,6 +89,83 @@ function timeAgo(dateStr: string) {
   return `${days}d ago`;
 }
 
+const statCards = [
+  { key: "agents" as const, label: "Agents", icon: Bot, gradient: "from-violet-500/10 to-purple-500/10", iconColor: "text-violet-500" },
+  { key: "clusters" as const, label: "Clusters", icon: Network, gradient: "from-blue-500/10 to-cyan-500/10", iconColor: "text-blue-500" },
+  { key: "runs_7d" as const, label: "Runs (7d)", icon: Zap, gradient: "from-amber-500/10 to-orange-500/10", iconColor: "text-amber-500" },
+] as const;
+
+function OnboardingHero() {
+  return (
+    <div className="relative overflow-hidden rounded-xl border bg-gradient-to-br from-violet-500/5 via-blue-500/5 to-emerald-500/5 p-8 animate-fade-in-up">
+      {/* Decorative blobs */}
+      <div className="absolute -top-20 -right-20 h-48 w-48 rounded-full bg-violet-500/10 blur-3xl" />
+      <div className="absolute -bottom-20 -left-20 h-48 w-48 rounded-full bg-blue-500/10 blur-3xl" />
+
+      <div className="relative">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-blue-600 text-white animate-float">
+            <Sparkles className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold">Welcome to Glorb</h2>
+            <p className="text-sm text-muted-foreground">Your AI agent platform is ready</p>
+          </div>
+        </div>
+
+        <p className="text-muted-foreground mb-6 max-w-lg">
+          Describe what you need in natural language and the AI architect will build agents,
+          clusters, and tools for you. Start with one of these:
+        </p>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Link href="/chat" className="group">
+            <Card className="h-full border-dashed hover:border-violet-500/50 hover:bg-violet-500/5 transition-all duration-200">
+              <CardContent className="flex items-center gap-3 py-4">
+                <div className="rounded-lg bg-violet-500/10 p-2 group-hover:bg-violet-500/20 transition-colors">
+                  <MessageSquare className="h-4 w-4 text-violet-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Start a Chat</p>
+                  <p className="text-xs text-muted-foreground">Describe and build</p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/templates" className="group">
+            <Card className="h-full border-dashed hover:border-blue-500/50 hover:bg-blue-500/5 transition-all duration-200">
+              <CardContent className="flex items-center gap-3 py-4">
+                <div className="rounded-lg bg-blue-500/10 p-2 group-hover:bg-blue-500/20 transition-colors">
+                  <Library className="h-4 w-4 text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Use a Template</p>
+                  <p className="text-xs text-muted-foreground">Fork pre-built agents</p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/marketplace" className="group">
+            <Card className="h-full border-dashed hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all duration-200">
+              <CardContent className="flex items-center gap-3 py-4">
+                <div className="rounded-lg bg-emerald-500/10 p-2 group-hover:bg-emerald-500/20 transition-colors">
+                  <BarChart3 className="h-4 w-4 text-emerald-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Marketplace</p>
+                  <p className="text-xs text-muted-foreground">Discover community agents</p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [fleet, setFleet] = useState<FleetHealth | null>(null);
@@ -117,7 +197,13 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex-1 p-6 flex justify-center items-center">
-        <Loader2 className="h-6 w-6 animate-spin" />
+        <div className="flex flex-col items-center gap-3">
+          <div className="relative">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-500 to-blue-600 animate-pulse" />
+            <Loader2 className="h-5 w-5 text-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-spin" />
+          </div>
+          <p className="text-sm text-muted-foreground">Loading dashboard...</p>
+        </div>
       </div>
     );
   }
@@ -131,9 +217,11 @@ export default function DashboardPage() {
     );
   }
 
+  const isEmpty = !stats?.counts.agents && !stats?.counts.clusters && !stats?.recentActivity.length;
+
   return (
     <div className="flex-1 p-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between animate-fade-in-up">
         <div>
           <h1 className="text-3xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground mt-1">
@@ -146,99 +234,92 @@ export default function DashboardPage() {
         </Button>
       </div>
 
-      {/* Stats Cards */}
+      {/* Onboarding hero for empty state */}
+      {isEmpty && <OnboardingHero />}
+
+      {/* Stats Cards — with gradient accents */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Agents</CardTitle>
-            <Bot className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.counts.agents ?? "..."}</div>
-          </CardContent>
-        </Card>
+        {statCards.map(({ key, label, icon: Icon, gradient, iconColor }, i) => (
+          <Card key={key} className={`animate-fade-in-up stagger-${i + 1} overflow-hidden`}>
+            <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-50`} />
+            <CardHeader className="relative flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">{label}</CardTitle>
+              <Icon className={`h-4 w-4 ${iconColor}`} />
+            </CardHeader>
+            <CardContent className="relative">
+              <div className="text-2xl font-bold">{stats?.counts[key] ?? "—"}</div>
+            </CardContent>
+          </Card>
+        ))}
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Clusters</CardTitle>
-            <Network className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.counts.clusters ?? "..."}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Runs (7d)</CardTitle>
-            <Zap className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.counts.runs_7d ?? "..."}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <Card className="animate-fade-in-up stagger-4 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-green-500/10 opacity-50" />
+          <CardHeader className="relative flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <TrendingUp className="h-4 w-4 text-emerald-500" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="relative">
             <div className="text-2xl font-bold">
-              {stats?.counts.success_rate_7d != null ? `${stats.counts.success_rate_7d}%` : "—"}
+              {stats?.counts.success_rate_7d != null ? (
+                <span className={stats.counts.success_rate_7d >= 90 ? "text-emerald-600 dark:text-emerald-400" : stats.counts.success_rate_7d >= 70 ? "text-amber-600 dark:text-amber-400" : "text-red-600 dark:text-red-400"}>
+                  {stats.counts.success_rate_7d}%
+                </span>
+              ) : "—"}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Link href="/chat">
-          <Card className="hover:border-primary/50 transition-colors cursor-pointer">
-            <CardHeader className="flex flex-row items-center gap-3 pb-2">
-              <div className="rounded-lg bg-primary/10 p-2">
-                <MessageSquare className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <CardTitle className="text-lg">Start Building</CardTitle>
-                <CardDescription>
-                  Describe what you need and the AI will architect it
-                </CardDescription>
-              </div>
-            </CardHeader>
-          </Card>
-        </Link>
+      {/* Quick Actions — only show when not empty */}
+      {!isEmpty && (
+        <div className="grid gap-4 md:grid-cols-3">
+          <Link href="/chat">
+            <Card className="group hover:border-violet-500/50 transition-all duration-200 cursor-pointer hover:shadow-md hover:shadow-violet-500/5">
+              <CardHeader className="flex flex-row items-center gap-3 pb-2">
+                <div className="rounded-lg bg-gradient-to-br from-violet-500/20 to-purple-500/20 p-2 group-hover:from-violet-500/30 group-hover:to-purple-500/30 transition-all">
+                  <MessageSquare className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">Start Building</CardTitle>
+                  <CardDescription>
+                    Describe what you need and the AI will architect it
+                  </CardDescription>
+                </div>
+              </CardHeader>
+            </Card>
+          </Link>
 
-        <Link href="/templates">
-          <Card className="hover:border-primary/50 transition-colors cursor-pointer">
-            <CardHeader className="flex flex-row items-center gap-3 pb-2">
-              <div className="rounded-lg bg-primary/10 p-2">
-                <Zap className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <CardTitle className="text-lg">Templates</CardTitle>
-                <CardDescription>Fork pre-built agents and clusters</CardDescription>
-              </div>
-            </CardHeader>
-          </Card>
-        </Link>
+          <Link href="/templates">
+            <Card className="group hover:border-blue-500/50 transition-all duration-200 cursor-pointer hover:shadow-md hover:shadow-blue-500/5">
+              <CardHeader className="flex flex-row items-center gap-3 pb-2">
+                <div className="rounded-lg bg-gradient-to-br from-blue-500/20 to-cyan-500/20 p-2 group-hover:from-blue-500/30 group-hover:to-cyan-500/30 transition-all">
+                  <Zap className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">Templates</CardTitle>
+                  <CardDescription>Fork pre-built agents and clusters</CardDescription>
+                </div>
+              </CardHeader>
+            </Card>
+          </Link>
 
-        <Link href="/settings">
-          <Card className="hover:border-primary/50 transition-colors cursor-pointer">
-            <CardHeader className="flex flex-row items-center gap-3 pb-2">
-              <div className="rounded-lg bg-primary/10 p-2">
-                <Key className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <CardTitle className="text-lg">API & CLI</CardTitle>
-                <CardDescription>Manage keys, MCP config, CLI setup</CardDescription>
-              </div>
-            </CardHeader>
-          </Card>
-        </Link>
-      </div>
+          <Link href="/settings">
+            <Card className="group hover:border-amber-500/50 transition-all duration-200 cursor-pointer hover:shadow-md hover:shadow-amber-500/5">
+              <CardHeader className="flex flex-row items-center gap-3 pb-2">
+                <div className="rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20 p-2 group-hover:from-amber-500/30 group-hover:to-orange-500/30 transition-all">
+                  <Key className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">API & CLI</CardTitle>
+                  <CardDescription>Manage keys, MCP config, CLI setup</CardDescription>
+                </div>
+              </CardHeader>
+            </Card>
+          </Link>
+        </div>
+      )}
 
-      {/* Fleet Health */}
+      {/* Fleet Health — with status indicator bar */}
       {fleet && fleet.agents.length > 0 && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
@@ -265,6 +346,28 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
+            {/* Health bar */}
+            <div className="flex h-1.5 w-full rounded-full overflow-hidden mb-4 bg-muted">
+              {fleet.summary.healthy > 0 && (
+                <div
+                  className="bg-green-500 transition-all duration-500"
+                  style={{ width: `${(fleet.summary.healthy / fleet.summary.total) * 100}%` }}
+                />
+              )}
+              {fleet.summary.degraded > 0 && (
+                <div
+                  className="bg-yellow-500 transition-all duration-500"
+                  style={{ width: `${(fleet.summary.degraded / fleet.summary.total) * 100}%` }}
+                />
+              )}
+              {fleet.summary.offline > 0 && (
+                <div
+                  className="bg-red-500 transition-all duration-500"
+                  style={{ width: `${(fleet.summary.offline / fleet.summary.total) * 100}%` }}
+                />
+              )}
+            </div>
+
             <div className="space-y-1.5">
               {fleet.agents.slice(0, 8).map((agent) => (
                 <Link
@@ -315,9 +418,14 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             {!stats?.recentAgents.length ? (
-              <p className="text-sm text-muted-foreground">
-                No agents yet. Start a chat to create your first agent.
-              </p>
+              <div className="flex flex-col items-center py-6 gap-2">
+                <div className="rounded-full bg-violet-500/10 p-3">
+                  <Bot className="h-5 w-5 text-violet-500" />
+                </div>
+                <p className="text-sm text-muted-foreground text-center">
+                  No agents yet. Start a chat to create your first agent.
+                </p>
+              </div>
             ) : (
               <div className="space-y-2">
                 {stats.recentAgents.map((agent) => (
@@ -356,9 +464,14 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             {!stats?.recentClusters.length ? (
-              <p className="text-sm text-muted-foreground">
-                No clusters yet. Start a chat to create your first cluster.
-              </p>
+              <div className="flex flex-col items-center py-6 gap-2">
+                <div className="rounded-full bg-blue-500/10 p-3">
+                  <Network className="h-5 w-5 text-blue-500" />
+                </div>
+                <p className="text-sm text-muted-foreground text-center">
+                  No clusters yet. Start a chat to create your first cluster.
+                </p>
+              </div>
             ) : (
               <div className="space-y-2">
                 {stats.recentClusters.map((cluster) => (
@@ -397,9 +510,14 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             {!stats?.recentActivity.length ? (
-              <p className="text-sm text-muted-foreground">
-                No activity yet. Your actions will appear here.
-              </p>
+              <div className="flex flex-col items-center py-6 gap-2">
+                <div className="rounded-full bg-muted p-3">
+                  <Activity className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  No activity yet. Your actions will appear here.
+                </p>
+              </div>
             ) : (
               <div className="space-y-1">
                 {stats.recentActivity.map((item) => (
