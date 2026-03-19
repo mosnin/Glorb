@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
   BarChart3,
@@ -14,6 +14,7 @@ import {
   Bot,
   AlertTriangle,
   ArrowRight,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,6 +35,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { ApiError } from "@/components/api-error";
 
 interface AnalyticsData {
   totals: {
@@ -95,39 +97,63 @@ const FRAMEWORK_COLORS: Record<string, string> = {
   api: "bg-orange-500",
 };
 
+async function safeFetch<T>(url: string, fallback: T): Promise<{ data: T; error?: string }> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      return { data: fallback, error: body.error || `Request failed (${res.status})` };
+    }
+    return { data: await res.json() };
+  } catch (err) {
+    return { data: fallback, error: err instanceof Error ? err.message : "Network error" };
+  }
+}
+
 export default function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [alerts, setAlerts] = useState<AlertRule[]>([]);
   const [agentNames, setAgentNames] = useState<AgentName[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [days, setDays] = useState(30);
   const [showBudget, setShowBudget] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newBudgetAmount, setNewBudgetAmount] = useState("10");
   const [newBudgetThreshold, setNewBudgetThreshold] = useState("80");
 
-  useEffect(() => {
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setFetchError(null);
+
     const params = new URLSearchParams({ days: String(days) });
 
-    Promise.all([
-      fetch(`/api/analytics?${params}`).then((r) => r.json()),
-      fetch("/api/analytics/budgets").then((r) => r.json()),
-      fetch("/api/alerts").then((r) => r.json()),
-      fetch("/api/agents").then((r) => r.json()),
-    ])
-      .then(([analytics, budgetData, alertData, agentsData]) => {
-        setData(analytics);
-        setBudgets(Array.isArray(budgetData) ? budgetData : []);
-        setAlerts(Array.isArray(alertData) ? alertData : []);
-        setAgentNames(
-          Array.isArray(agentsData)
-            ? agentsData.map((a: { id: string; name: string }) => ({ id: a.id, name: a.name }))
-            : []
-        );
-      })
-      .finally(() => setLoading(false));
+    const [analyticsResult, budgetResult, alertResult, agentsResult] = await Promise.all([
+      safeFetch<AnalyticsData | null>(`/api/analytics?${params}`, null),
+      safeFetch<Budget[]>("/api/analytics/budgets", []),
+      safeFetch<AlertRule[]>("/api/alerts", []),
+      safeFetch<AgentName[]>("/api/agents", []),
+    ]);
+
+    if (analyticsResult.error) {
+      setFetchError(analyticsResult.error);
+    }
+
+    setData(analyticsResult.data);
+    setBudgets(Array.isArray(budgetResult.data) ? budgetResult.data : []);
+    setAlerts(Array.isArray(alertResult.data) ? alertResult.data : []);
+    setAgentNames(
+      Array.isArray(agentsResult.data)
+        ? agentsResult.data.map((a: { id: string; name: string }) => ({ id: a.id, name: a.name }))
+        : []
+    );
+    setLoading(false);
   }, [days]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   function getAgentName(agentId: string): string {
     return agentNames.find((a) => a.id === agentId)?.name || agentId.slice(0, 8);
@@ -180,6 +206,17 @@ export default function AnalyticsPage() {
     return (
       <div className="flex-1 p-6 flex justify-center items-center">
         <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    );
+  }
+
+  if (fetchError && !data) {
+    return (
+      <div className="flex-1 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold">Analytics</h1>
+        </div>
+        <ApiError message={fetchError} onRetry={loadData} />
       </div>
     );
   }

@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
 
   const openai = getOpenAIClient();
   const supabase = createAdminSupabaseClient();
+  const startTime = Date.now();
 
   // Save user message to DB
   const lastUserMessage = messages[messages.length - 1];
@@ -37,6 +38,13 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // Look up the session to check for an associated agent
+  const { data: session } = await supabase
+    .from("chat_sessions")
+    .select("agent_id, cluster_id")
+    .eq("id", session_id)
+    .single();
+
   // Build conversation with system prompt
   const conversationMessages: ChatCompletionMessageParam[] = [
     { role: "system", content: AGENT_ARCHITECT_SYSTEM_PROMPT },
@@ -47,6 +55,11 @@ export async function POST(req: NextRequest) {
 
   const stream = new ReadableStream({
     async start(controller) {
+      let totalInputTokens = 0;
+      let totalOutputTokens = 0;
+      let totalToolCalls = 0;
+      let hasError = false;
+
       try {
         let continueLoop = true;
         let currentMessages = conversationMessages;
@@ -59,6 +72,7 @@ export async function POST(req: NextRequest) {
             messages: currentMessages,
             tools: ARCHITECT_TOOLS,
             stream: true,
+            stream_options: { include_usage: true },
           });
 
           let assistantContent = "";
@@ -97,10 +111,17 @@ export async function POST(req: NextRequest) {
                 }
               }
             }
+
+            // Capture usage from the final chunk
+            if (chunk.usage) {
+              totalInputTokens += chunk.usage.prompt_tokens;
+              totalOutputTokens += chunk.usage.completion_tokens;
+            }
           }
 
           // If there are tool calls, execute them and continue
           if (toolCalls.size > 0) {
+            totalToolCalls += toolCalls.size;
             const toolCallsArray: ChatCompletionMessageToolCall[] = [];
             const toolResults: ChatCompletionMessageParam[] = [];
 
@@ -200,16 +221,53 @@ export async function POST(req: NextRequest) {
         controller.enqueue(
           encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`)
         );
-        controller.close();
       } catch (error) {
+        hasError = true;
         const message = error instanceof Error ? error.message : "Unknown error";
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({ type: "error", error: message })}\n\n`
           )
         );
-        controller.close();
       }
+
+      // Record the chat interaction as an agent run if tied to an agent
+      const durationMs = Date.now() - startTime;
+      if (session?.agent_id) {
+        await supabase.from("agent_runs").insert({
+          agent_id: session.agent_id,
+          user_id: userId,
+          status: hasError ? "failed" : "completed",
+          input_message: lastUserMessage?.content || "",
+          output_message: "(architect chat session)",
+          trigger_type: "manual",
+          input_tokens: totalInputTokens,
+          output_tokens: totalOutputTokens,
+          total_turns: totalToolCalls,
+          duration_ms: durationMs,
+          completed_at: new Date().toISOString(),
+        });
+      }
+
+      // Log to activity feed
+      supabase
+        .from("activity_log")
+        .insert({
+          user_id: userId,
+          action: "chat_completion",
+          entity_type: "chat",
+          entity_id: session_id,
+          metadata: {
+            input_tokens: totalInputTokens,
+            output_tokens: totalOutputTokens,
+            tool_calls: totalToolCalls,
+            duration_ms: durationMs,
+            agent_id: session?.agent_id || null,
+          },
+        })
+        .then(() => {});
+
+      controller.close();
     },
   });
 

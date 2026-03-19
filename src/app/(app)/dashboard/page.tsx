@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
   Plus,
@@ -19,6 +19,7 @@ import {
   Shield,
   AlertTriangle,
   WifiOff,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +30,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ApiError } from "@/components/api-error";
 
 interface FleetHealth {
   summary: { total: number; healthy: number; degraded: number; offline: number; unknown: number };
@@ -87,17 +89,47 @@ function timeAgo(dateStr: string) {
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [fleet, setFleet] = useState<FleetHealth | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [statsRes, fleetRes] = await Promise.all([
+        fetch("/api/dashboard/stats"),
+        fetch("/api/agents/health"),
+      ]);
+      if (statsRes.ok) setStats(await statsRes.json());
+      else setError("Failed to load dashboard stats");
+      if (fleetRes.ok) setFleet(await fleetRes.json());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load dashboard");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    fetch("/api/dashboard/stats")
-      .then((res) => res.json())
-      .then(setStats)
-      .catch(() => {});
-    fetch("/api/agents/health")
-      .then((res) => res.json())
-      .then(setFleet)
-      .catch(() => {});
-  }, []);
+    loadData();
+  }, [loadData]);
+
+  if (loading) {
+    return (
+      <div className="flex-1 p-6 flex justify-center items-center">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error && !stats) {
+    return (
+      <div className="flex-1 p-6">
+        <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
+        <ApiError message={error} onRetry={loadData} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 p-6 space-y-6">
