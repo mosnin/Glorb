@@ -15,6 +15,9 @@ import { CollaboratorPanel } from "@/components/agents/collaborator-panel";
 import { RunHistory } from "@/components/agents/run-history";
 import { SyncDashboard } from "@/components/agents/sync-dashboard";
 import { SecretsPanel } from "@/components/agents/secrets-panel";
+import { SnapshotManager } from "@/components/agents/snapshot-manager";
+import { HealthMonitor } from "@/components/agents/health-monitor";
+import { AlertManager } from "@/components/agents/alert-manager";
 
 interface AgentDetail {
   id: string;
@@ -113,7 +116,14 @@ export default function AgentDetailPage({
         <CollaboratorPanel agentId={agentId} />
       </div>
 
+      <div className="grid gap-4 md:grid-cols-2">
+        <HealthMonitor agentId={agentId} />
+        <SnapshotManager agentId={agentId} onRollback={loadAgent} />
+      </div>
+
       <SyncDashboard agentId={agentId} />
+
+      <AlertManager agentId={agentId} />
 
       <MemoryPanel agentId={agentId} />
 

@@ -15,6 +15,10 @@ import {
   FileText,
   FlaskConical,
   Key,
+  HeartPulse,
+  Shield,
+  AlertTriangle,
+  WifiOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +29,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+
+interface FleetHealth {
+  summary: { total: number; healthy: number; degraded: number; offline: number; unknown: number };
+  agents: {
+    agent_id: string;
+    agent_name: string;
+    status: string;
+    error_count_1h: number;
+    total_runs_24h: number;
+    active_frameworks: string[];
+  }[];
+}
 
 interface DashboardStats {
   counts: {
@@ -70,11 +86,16 @@ function timeAgo(dateStr: string) {
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [fleet, setFleet] = useState<FleetHealth | null>(null);
 
   useEffect(() => {
     fetch("/api/dashboard/stats")
       .then((res) => res.json())
       .then(setStats)
+      .catch(() => {});
+    fetch("/api/agents/health")
+      .then((res) => res.json())
+      .then(setFleet)
       .catch(() => {});
   }, []);
 
@@ -184,6 +205,72 @@ export default function DashboardPage() {
           </Card>
         </Link>
       </div>
+
+      {/* Fleet Health */}
+      {fleet && fleet.agents.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <HeartPulse className="h-4 w-4" />
+              Agent Fleet Health
+            </CardTitle>
+            <div className="flex items-center gap-3 text-xs">
+              {fleet.summary.healthy > 0 && (
+                <span className="flex items-center gap-1 text-green-500">
+                  <Shield className="h-3 w-3" /> {fleet.summary.healthy} healthy
+                </span>
+              )}
+              {fleet.summary.degraded > 0 && (
+                <span className="flex items-center gap-1 text-yellow-500">
+                  <AlertTriangle className="h-3 w-3" /> {fleet.summary.degraded} degraded
+                </span>
+              )}
+              {fleet.summary.offline > 0 && (
+                <span className="flex items-center gap-1 text-red-500">
+                  <WifiOff className="h-3 w-3" /> {fleet.summary.offline} offline
+                </span>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1.5">
+              {fleet.agents.slice(0, 8).map((agent) => (
+                <Link
+                  key={agent.agent_id}
+                  href={`/agents/${agent.agent_id}`}
+                  className="flex items-center justify-between p-2 rounded hover:bg-muted transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`h-2 w-2 rounded-full ${
+                        agent.status === "healthy"
+                          ? "bg-green-500"
+                          : agent.status === "degraded"
+                            ? "bg-yellow-500"
+                            : agent.status === "offline"
+                              ? "bg-red-500"
+                              : "bg-gray-400"
+                      }`}
+                    />
+                    <span className="text-sm font-medium">{agent.agent_name}</span>
+                    {agent.active_frameworks.length > 0 && (
+                      <span className="text-[10px] text-muted-foreground">
+                        {agent.active_frameworks.join(", ")}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span>{agent.total_runs_24h} runs</span>
+                    {agent.error_count_1h > 0 && (
+                      <span className="text-red-500">{agent.error_count_1h} errors</span>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         {/* Recent Agents */}

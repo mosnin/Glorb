@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { Eye, Code, Download, ArrowLeft, Bot, Play, Blocks } from "lucide-react";
+import { Eye, Code, Download, ArrowLeft, Bot, Play, Blocks, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -68,6 +68,10 @@ export default function ClusterDetailPage({
           <Button variant="outline" render={<Link href={`/clusters/${clusterId}/visualize`} />}>
               <Eye className="h-4 w-4 mr-2" />
               Visualize
+          </Button>
+          <Button variant="outline" render={<Link href={`/clusters/${clusterId}/sync`} />}>
+              <Activity className="h-4 w-4 mr-2" />
+              Sync
           </Button>
           <Button variant="outline" render={<Link href={`/clusters/${clusterId}/ide`} />}>
               <Code className="h-4 w-4 mr-2" />
