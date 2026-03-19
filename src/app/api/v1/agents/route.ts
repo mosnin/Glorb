@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authenticateRequest } from "@/lib/auth/api-key";
+import { authenticateWithRateLimit } from "@/lib/auth/api-key";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
 export async function GET(req: NextRequest) {
-  const userId = await authenticateRequest(req);
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authResult = await authenticateWithRateLimit(req);
+  if (!authResult) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (authResult instanceof Response) return authResult;
+  const userId = authResult;
 
   const supabase = createAdminSupabaseClient();
   const { data, error } = await supabase

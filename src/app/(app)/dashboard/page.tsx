@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
+import { useRealtimeMulti } from "@/hooks/use-realtime";
 import {
   Plus,
   Bot,
@@ -193,6 +194,22 @@ export default function DashboardPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Auto-refresh when data changes via Supabase Realtime
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  useRealtimeMulti(
+    [
+      { table: "agents", event: "*" },
+      { table: "agent_health", event: "*" },
+      { table: "activity_log", event: "INSERT" },
+      { table: "agent_runs", event: "INSERT" },
+    ],
+    () => {
+      // Debounce rapid changes to avoid hammering the API
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => loadData(), 2000);
+    }
+  );
 
   if (loading) {
     return (

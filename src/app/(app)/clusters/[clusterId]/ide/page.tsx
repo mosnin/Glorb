@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState, useCallback } from "react";
+import { use, useEffect, useState, useCallback, useMemo } from "react";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -11,6 +11,7 @@ import { EditorPanel } from "@/components/ide/editor-panel";
 import { EditorTabs, type EditorTab } from "@/components/ide/editor-tabs";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Download } from "lucide-react";
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -175,6 +176,35 @@ export default function ClusterIDEPage({
       }
     },
     [activeTabId, fileSource]
+  );
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts(
+    useMemo(
+      () => [
+        {
+          key: "ctrl+s",
+          handler: () => {
+            if (activeTabId) {
+              const tab = tabs.find((t) => t.id === activeTabId);
+              if (tab?.isDirty) {
+                const content = fileContents[activeTabId];
+                if (content !== undefined) handleContentChange(content);
+              } else {
+                toast.success("Already saved");
+              }
+            }
+          },
+        },
+        {
+          key: "ctrl+w",
+          handler: () => {
+            if (activeTabId) handleTabClose(activeTabId);
+          },
+        },
+      ],
+      [activeTabId, tabs, fileContents, handleContentChange, handleTabClose]
+    )
   );
 
   return (

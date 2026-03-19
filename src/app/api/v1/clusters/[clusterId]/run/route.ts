@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { authenticateRequest } from "@/lib/auth/api-key";
+import { authenticateWithRateLimit } from "@/lib/auth/api-key";
 import { runCluster, type ClusterRunEvent } from "@/lib/ai/cluster-runtime";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { processRunCompletion } from "@/lib/pipeline";
@@ -8,8 +8,10 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ clusterId: string }> }
 ) {
-  const userId = await authenticateRequest(req);
-  if (!userId) return new Response("Unauthorized", { status: 401 });
+  const authResult = await authenticateWithRateLimit(req, "run");
+  if (!authResult) return new Response("Unauthorized", { status: 401 });
+  if (authResult instanceof Response) return authResult;
+  const userId = authResult;
 
   const { clusterId } = await params;
   const { message, source_framework } = await req.json();

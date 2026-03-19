@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authenticateRequest } from "@/lib/auth/api-key";
+import { authenticateWithRateLimit } from "@/lib/auth/api-key";
 import { buildAgentManifest } from "@/lib/manifest";
 import { generateAdapter, type Framework } from "@/lib/adapters";
 
@@ -9,8 +9,10 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ agentId: string }> }
 ) {
-  const userId = await authenticateRequest(req);
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authResult = await authenticateWithRateLimit(req);
+  if (!authResult) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (authResult instanceof Response) return authResult;
+  const userId = authResult;
 
   const { agentId } = await params;
   const { searchParams } = new URL(req.url);

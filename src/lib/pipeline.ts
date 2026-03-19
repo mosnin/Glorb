@@ -1,5 +1,6 @@
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { dispatchWebhook } from "@/lib/webhooks";
+import { sendAlertEmail, sendBudgetAlertEmail } from "@/lib/email";
 
 /**
  * Post-run pipeline: rolls up usage into agent_usage_daily,
@@ -195,6 +196,18 @@ export async function processRunCompletion(opts: {
       }).catch(() => {});
     }
 
+    // Send email notification if configured
+    if (rule.notify_via === "email" && rule.notify_email) {
+      sendAlertEmail({
+        to: rule.notify_email,
+        agentName: agent?.name || agentId,
+        condition: rule.condition,
+        healthStatus,
+        errorsLastHour,
+        agentId,
+      }).catch(() => {});
+    }
+
     // Also dispatch through the webhook system
     dispatchWebhook(userId, "agent.run.failed", alertPayload).catch(() => {});
   }
@@ -202,17 +215,52 @@ export async function processRunCompletion(opts: {
   // --- 4. Update token budget usage ---
   const { data: budgets } = await supabase
     .from("agent_token_budgets")
-    .select("id, current_month_usage_usd, monthly_budget_usd, alert_threshold_pct")
+    .select("id, current_month_usage_usd, monthly_budget_usd, alert_threshold_pct, agent_id")
     .eq("enabled", true)
     .eq("user_id", userId)
     .or(`agent_id.eq.${agentId},agent_id.is.null`);
 
   for (const budget of budgets || []) {
     const newUsage = Number(budget.current_month_usage_usd) + estimatedCost;
+    const budgetLimit = Number(budget.monthly_budget_usd);
+    const thresholdPct = Number(budget.alert_threshold_pct) || 80;
+    const oldUsage = Number(budget.current_month_usage_usd);
+
     await supabase
       .from("agent_token_budgets")
       .update({ current_month_usage_usd: newUsage })
       .eq("id", budget.id);
+
+    // Send budget threshold email when crossing the threshold
+    const oldPct = (oldUsage / budgetLimit) * 100;
+    const newPct = (newUsage / budgetLimit) * 100;
+    if (oldPct < thresholdPct && newPct >= thresholdPct) {
+      // Look up user email from Clerk (if available) or use a stored email
+      const { data: agentData } = await supabase
+        .from("agents")
+        .select("name")
+        .eq("id", budget.agent_id || agentId)
+        .maybeSingle();
+
+      // Try to get user email from api_keys table (most recent key owner)
+      const { data: userKey } = await supabase
+        .from("api_keys")
+        .select("name")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // Budget alerts go through webhook system as well
+      dispatchWebhook(userId, "agent.run.completed", {
+        type: "budget_threshold",
+        agent_id: budget.agent_id || agentId,
+        agent_name: agentData?.name || "Account-wide",
+        budget_usd: budgetLimit,
+        usage_usd: newUsage,
+        threshold_pct: thresholdPct,
+      }).catch(() => {});
+    }
   }
 }
 

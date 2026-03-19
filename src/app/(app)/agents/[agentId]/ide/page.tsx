@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState, useCallback } from "react";
+import { use, useEffect, useState, useCallback, useMemo } from "react";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Download, Plus } from "lucide-react";
 import { SkillBuilderDialog } from "@/components/agents/skill-builder-dialog";
 import { VersionHistoryPanel } from "@/components/agents/version-history-panel";
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -117,6 +118,43 @@ export default function AgentIDEPage({
       }
     },
     [activeTabId, agentId]
+  );
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts(
+    useMemo(
+      () => [
+        {
+          key: "ctrl+s",
+          handler: () => {
+            // Save is automatic on change, but show confirmation
+            if (activeTabId) {
+              const tab = tabs.find((t) => t.id === activeTabId);
+              if (tab?.isDirty) {
+                const content = fileContents[activeTabId];
+                if (content !== undefined) handleContentChange(content);
+              } else {
+                toast.success("Already saved");
+              }
+            }
+          },
+        },
+        {
+          key: "ctrl+w",
+          handler: () => {
+            if (activeTabId) handleTabClose(activeTabId);
+          },
+        },
+        {
+          key: "ctrl+shift+e",
+          handler: () => {
+            // Focus file tree (toggle skill builder as proxy for "new file")
+            setShowSkillBuilder(true);
+          },
+        },
+      ],
+      [activeTabId, tabs, fileContents, handleContentChange, handleTabClose]
+    )
   );
 
   return (
