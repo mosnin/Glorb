@@ -7,12 +7,15 @@ export async function GET(req: NextRequest) {
   const category = searchParams.get("category");
   const search = searchParams.get("search");
   const featured = searchParams.get("featured");
+  const page = parseInt(searchParams.get("page") || "1");
+  const pageSize = parseInt(searchParams.get("pageSize") || "24");
+  const offset = (page - 1) * pageSize;
 
   const supabase = createAdminSupabaseClient();
 
   let query = supabase
     .from("marketplace_listings")
-    .select("*")
+    .select("*", { count: "exact" })
     .order("use_count", { ascending: false });
 
   if (type && type !== "all") query = query.eq("entity_type", type);
@@ -20,8 +23,10 @@ export async function GET(req: NextRequest) {
   if (featured === "true") query = query.eq("is_featured", true);
   if (search) query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%`);
 
-  const { data, error } = await query;
+  query = query.range(offset, offset + pageSize - 1);
+
+  const { data, error, count } = await query;
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+  return NextResponse.json({ items: data, total: count || 0 });
 }

@@ -32,7 +32,7 @@ export function WorkspaceManager() {
   const [loading, setLoading] = useState(true);
   const [showInvite, setShowInvite] = useState(false);
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"editor" | "viewer">("editor");
+  const [role, setRole] = useState<"admin" | "editor" | "viewer">("editor");
   const [inviting, setInviting] = useState(false);
 
   const load = useCallback(async () => {
@@ -91,12 +91,34 @@ export function WorkspaceManager() {
     }
   };
 
+  const changeRole = async (memberId: string, newRole: string) => {
+    const res = await fetch(`/api/workspace/members/${memberId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: newRole }),
+    });
+    if (res.ok) {
+      setMembers((prev) =>
+        prev.map((m) => (m.member_id === memberId ? { ...m, role: newRole } : m))
+      );
+      toast.success("Role updated");
+    } else {
+      toast.error("Failed to update role");
+    }
+  };
+
   const roleColor = (r: string): "default" | "secondary" | "outline" => {
     switch (r) {
-      case "owner": return "default";
+      case "admin": return "default";
       case "editor": return "secondary";
       default: return "outline";
     }
+  };
+
+  const roleDescriptions: Record<string, string> = {
+    admin: "Full access — manage members, agents, clusters, and settings",
+    editor: "Can create and edit agents and clusters",
+    viewer: "Read-only access to agents, clusters, and analytics",
   };
 
   return (
@@ -146,9 +168,15 @@ export function WorkspaceManager() {
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant={roleColor(m.role)} className="text-xs">
-                          {m.role}
-                        </Badge>
+                        <select
+                          value={m.role}
+                          onChange={(e) => changeRole(m.member_id, e.target.value)}
+                          className="text-xs border rounded px-2 py-1 bg-background"
+                        >
+                          <option value="admin">Admin</option>
+                          <option value="editor">Editor</option>
+                          <option value="viewer">Viewer</option>
+                        </select>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -210,7 +238,7 @@ export function WorkspaceManager() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Role</label>
               <div className="flex gap-2">
-                {(["editor", "viewer"] as const).map((r) => (
+                {(["admin", "editor", "viewer"] as const).map((r) => (
                   <Button
                     key={r}
                     variant={role === r ? "default" : "outline"}
@@ -221,6 +249,7 @@ export function WorkspaceManager() {
                   </Button>
                 ))}
               </div>
+              <p className="text-xs text-muted-foreground">{roleDescriptions[role]}</p>
             </div>
           </div>
           <DialogFooter>

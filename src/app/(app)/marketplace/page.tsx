@@ -16,7 +16,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Pagination } from "@/components/pagination";
 import { toast } from "sonner";
+
+const PAGE_SIZE = 24;
 
 interface Listing {
   id: string;
@@ -39,6 +42,8 @@ export default function MarketplacePage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | "agent" | "cluster">("all");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [forkingId, setForkingId] = useState<string | null>(null);
   const [forkDialog, setForkDialog] = useState<Listing | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +52,8 @@ export default function MarketplacePage() {
     const params = new URLSearchParams();
     if (typeFilter !== "all") params.set("type", typeFilter);
     if (search) params.set("search", search);
+    params.set("page", String(page));
+    params.set("pageSize", String(PAGE_SIZE));
 
     setLoading(true);
     setError(null);
@@ -54,13 +61,14 @@ export default function MarketplacePage() {
       const res = await fetch(`/api/marketplace?${params}`);
       if (!res.ok) throw new Error(`Failed to load marketplace (${res.status})`);
       const data = await res.json();
-      setListings(Array.isArray(data) ? data : []);
+      setListings(data.items || (Array.isArray(data) ? data : []));
+      setTotal(data.total ?? (data.items || data).length);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load marketplace");
     } finally {
       setLoading(false);
     }
-  }, [typeFilter, search]);
+  }, [typeFilter, search, page]);
 
   useEffect(() => {
     loadData();
@@ -177,6 +185,12 @@ export default function MarketplacePage() {
               />
             ))}
           </div>
+          <Pagination
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={total}
+            onPageChange={setPage}
+          />
         </>
       )}
 

@@ -228,12 +228,23 @@ export function RunHistory({
                       ) : runDetail ? (
                         <>
                           {/* Stats bar */}
-                          <div className="flex gap-4 text-xs">
+                          <div className="flex gap-4 text-xs flex-wrap">
                             <span>Turns: {runDetail.total_turns}</span>
                             <span>In: {runDetail.input_tokens.toLocaleString()} tokens</span>
                             <span>Out: {runDetail.output_tokens.toLocaleString()} tokens</span>
                             <span>Cost: {estimateCost(runDetail.input_tokens, runDetail.output_tokens)}</span>
+                            {runDetail.duration_ms && <span>Duration: {formatDuration(runDetail.duration_ms)}</span>}
                           </div>
+
+                          {/* Full output */}
+                          {runDetail.output_message && (
+                            <div>
+                              <p className="text-xs font-medium text-muted-foreground mb-1">Output</p>
+                              <pre className="text-xs bg-background p-2 rounded overflow-auto max-h-[200px] whitespace-pre-wrap border">
+                                {runDetail.output_message}
+                              </pre>
+                            </div>
+                          )}
 
                           {/* Trace events */}
                           <div className="space-y-1">

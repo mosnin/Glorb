@@ -11,6 +11,8 @@ import {
   Globe,
   Settings,
   BarChart3,
+  Book,
+  User,
 } from "lucide-react";
 import {
   Sidebar,
@@ -25,6 +27,8 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { UserMenu } from "./user-menu";
+import { NotificationCenter } from "./notification-center";
+import { Search } from "lucide-react";
 
 const navItems = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -34,7 +38,9 @@ const navItems = [
   { title: "Templates", href: "/templates", icon: Library },
   { title: "Marketplace", href: "/marketplace", icon: Globe },
   { title: "Analytics", href: "/analytics", icon: BarChart3 },
+  { title: "Docs", href: "/docs", icon: Book },
   { title: "Settings", href: "/settings", icon: Settings },
+  { title: "Profile", href: "/profile", icon: User },
 ];
 
 export function AppSidebar() {
@@ -43,12 +49,15 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="border-b px-4 py-3">
-        <Link href="/dashboard" className="flex items-center gap-2 group">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-blue-600 text-white font-bold text-sm shadow-sm group-hover:shadow-violet-500/25 transition-shadow">
-            G
-          </div>
-          <span className="text-lg font-semibold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">Glorb</span>
-        </Link>
+        <div className="flex items-center justify-between">
+          <Link href="/dashboard" className="flex items-center gap-2 group">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-blue-600 text-white font-bold text-sm shadow-sm group-hover:shadow-violet-500/25 transition-shadow">
+              G
+            </div>
+            <span className="text-lg font-semibold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">Glorb</span>
+          </Link>
+          <NotificationCenter />
+        </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>

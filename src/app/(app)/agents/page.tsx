@@ -2,14 +2,19 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Bot, MessageSquare, Loader2 } from "lucide-react";
+import { Bot, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AgentCard } from "@/components/agents/agent-card";
+import { Pagination } from "@/components/pagination";
 import { ApiError } from "@/components/api-error";
 import type { Agent } from "@/types/agent";
 
+const PAGE_SIZE = 24;
+
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -17,15 +22,17 @@ export default function AgentsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/agents");
+      const res = await fetch(`/api/agents?page=${page}&pageSize=${PAGE_SIZE}`);
       if (!res.ok) throw new Error(`Failed to load agents (${res.status})`);
-      setAgents(await res.json());
+      const data = await res.json();
+      setAgents(data.items || data);
+      setTotal(data.total ?? (data.items || data).length);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load agents");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     loadData();
@@ -51,7 +58,7 @@ export default function AgentsPage() {
         </div>
       ) : error ? (
         <ApiError message={error} onRetry={loadData} />
-      ) : agents.length === 0 ? (
+      ) : agents.length === 0 && page === 1 ? (
         <div className="flex flex-col items-center py-16 animate-fade-in-up">
           <div className="relative mb-4">
             <div className="absolute inset-0 rounded-full bg-violet-500/20 blur-xl" />
@@ -70,13 +77,21 @@ export default function AgentsPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {agents.map((agent, i) => (
-            <div key={agent.id} className={`animate-fade-in-up stagger-${Math.min(i + 1, 4)}`}>
-              <AgentCard agent={agent} />
-            </div>
-          ))}
-        </div>
+        <>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {agents.map((agent, i) => (
+              <div key={agent.id} className={`animate-fade-in-up stagger-${Math.min(i + 1, 4)}`}>
+                <AgentCard agent={agent} />
+              </div>
+            ))}
+          </div>
+          <Pagination
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={total}
+            onPageChange={setPage}
+          />
+        </>
       )}
     </div>
   );

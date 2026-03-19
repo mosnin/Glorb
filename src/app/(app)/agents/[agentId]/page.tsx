@@ -2,7 +2,9 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { Code, Download, FileText, ArrowLeft, Play, FlaskConical, Globe, Plug, BarChart3 } from "lucide-react";
+import { Code, Download, FileText, ArrowLeft, Play, FlaskConical, Globe, Plug, BarChart3, Copy } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +20,7 @@ import { SecretsPanel } from "@/components/agents/secrets-panel";
 import { SnapshotManager } from "@/components/agents/snapshot-manager";
 import { HealthMonitor } from "@/components/agents/health-monitor";
 import { AlertManager } from "@/components/agents/alert-manager";
+import { SnapshotDiff } from "@/components/agents/snapshot-diff";
 
 interface AgentDetail {
   id: string;
@@ -35,8 +38,27 @@ export default function AgentDetailPage({
   params: Promise<{ agentId: string }>;
 }) {
   const { agentId } = use(params);
+  const router = useRouter();
   const [agent, setAgent] = useState<AgentDetail | null>(null);
   const [showPublish, setShowPublish] = useState(false);
+  const [showDiff, setShowDiff] = useState(false);
+  const [cloning, setCloning] = useState(false);
+
+  const handleClone = async () => {
+    setCloning(true);
+    try {
+      const res = await fetch(`/api/agents/${agentId}/clone`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        toast.success(`Cloned as "${data.name}"`);
+        router.push(`/agents/${data.id}`);
+      } else {
+        toast.error("Clone failed");
+      }
+    } finally {
+      setCloning(false);
+    }
+  };
 
   const loadAgent = () => {
     fetch(`/api/agents/${agentId}`)
@@ -92,6 +114,10 @@ export default function AgentDetailPage({
               <Plug className="h-4 w-4 mr-2" />
               Pull
           </Button>
+          <Button variant="outline" onClick={handleClone} disabled={cloning}>
+              <Copy className="h-4 w-4 mr-2" />
+              {cloning ? "Cloning..." : "Clone"}
+          </Button>
           <Button variant="outline" render={<a href={`/api/agents/${agentId}/export`} download />}>
               <Download className="h-4 w-4 mr-2" />
               Export
@@ -122,7 +148,12 @@ export default function AgentDetailPage({
 
       <div className="grid gap-4 md:grid-cols-2">
         <HealthMonitor agentId={agentId} />
-        <SnapshotManager agentId={agentId} onRollback={loadAgent} />
+        <div className="space-y-4">
+          <SnapshotManager agentId={agentId} onRollback={loadAgent} />
+          <Button variant="outline" size="sm" onClick={() => setShowDiff(true)} className="w-full">
+            Compare Snapshots
+          </Button>
+        </div>
       </div>
 
       <SyncDashboard agentId={agentId} />
@@ -174,6 +205,11 @@ export default function AgentDetailPage({
         open={showPublish}
         onOpenChange={setShowPublish}
         onPublished={loadAgent}
+      />
+      <SnapshotDiff
+        agentId={agentId}
+        open={showDiff}
+        onOpenChange={setShowDiff}
       />
     </div>
   );

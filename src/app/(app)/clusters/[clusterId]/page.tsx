@@ -2,7 +2,9 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { Eye, Code, Download, ArrowLeft, Bot, Play, Blocks, Activity } from "lucide-react";
+import { Eye, Code, Download, ArrowLeft, Bot, Play, Blocks, Activity, Copy } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -27,7 +29,25 @@ export default function ClusterDetailPage({
   params: Promise<{ clusterId: string }>;
 }) {
   const { clusterId } = use(params);
+  const router = useRouter();
   const [cluster, setCluster] = useState<ClusterDetail | null>(null);
+  const [cloning, setCloning] = useState(false);
+
+  const handleClone = async () => {
+    setCloning(true);
+    try {
+      const res = await fetch(`/api/clusters/${clusterId}/clone`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        toast.success(`Cloned as "${data.name}"`);
+        router.push(`/clusters/${data.id}`);
+      } else {
+        toast.error("Clone failed");
+      }
+    } finally {
+      setCloning(false);
+    }
+  };
 
   useEffect(() => {
     fetch(`/api/clusters/${clusterId}`)
@@ -77,6 +97,10 @@ export default function ClusterDetailPage({
           <Button variant="outline" render={<Link href={`/clusters/${clusterId}/ide`} />}>
               <Code className="h-4 w-4 mr-2" />
               IDE
+          </Button>
+          <Button variant="outline" onClick={handleClone} disabled={cloning}>
+              <Copy className="h-4 w-4 mr-2" />
+              {cloning ? "Cloning..." : "Clone"}
           </Button>
           <Button variant="outline" render={<a href={`/api/clusters/${clusterId}/export`} download />}>
               <Download className="h-4 w-4 mr-2" />
