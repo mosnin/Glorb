@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { Code, Download, FileText, ArrowLeft, Play, FlaskConical, Globe, Plug } from "lucide-react";
+import { Code, Download, FileText, ArrowLeft, Play, FlaskConical, Globe, Plug, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -83,6 +83,10 @@ export default function AgentDetailPage({
           <Button render={<Link href={`/agents/${agentId}/ide`} />}>
               <Code className="h-4 w-4 mr-2" />
               Open IDE
+          </Button>
+          <Button variant="outline" render={<Link href={`/agents/${agentId}/analytics`} />}>
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Analytics
           </Button>
           <Button variant="outline" render={<Link href={`/agents/${agentId}/pull`} />}>
               <Plug className="h-4 w-4 mr-2" />

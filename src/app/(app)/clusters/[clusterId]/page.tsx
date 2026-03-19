@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ClusterRunner } from "@/components/clusters/cluster-runner";
+import { OrchestrationPanel } from "@/components/clusters/orchestration-panel";
 
 interface ClusterDetail {
   id: string;
@@ -153,6 +154,11 @@ export default function ClusterDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      <OrchestrationPanel
+        clusterId={clusterId}
+        agents={cluster.cluster_agents.map((ca) => ({ id: ca.agent.id, name: ca.agent.name }))}
+      />
     </div>
   );
 }

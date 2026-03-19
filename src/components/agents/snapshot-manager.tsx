@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { History, Plus, RotateCcw, Eye, Loader2 } from "lucide-react";
+import { History, Plus, RotateCcw, Eye, Loader2, GitCompare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { SnapshotDiff } from "./snapshot-diff";
 
 interface Snapshot {
   id: string;
@@ -62,6 +63,7 @@ export function SnapshotManager({ agentId, onRollback }: { agentId: string; onRo
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [rollbackId, setRollbackId] = useState<string | null>(null);
   const [rollingBack, setRollingBack] = useState(false);
+  const [showDiff, setShowDiff] = useState(false);
 
   useEffect(() => {
     fetch(`/api/agents/${agentId}/snapshots`)
@@ -126,10 +128,18 @@ export function SnapshotManager({ agentId, onRollback }: { agentId: string; onRo
             <History className="h-4 w-4" />
             Version Snapshots
           </CardTitle>
-          <Button size="sm" variant="outline" onClick={() => setShowCreate(true)}>
-            <Plus className="h-3 w-3 mr-1" />
-            Snapshot
-          </Button>
+          <div className="flex gap-1.5">
+            {snapshots.length >= 2 && (
+              <Button size="sm" variant="outline" onClick={() => setShowDiff(true)}>
+                <GitCompare className="h-3 w-3 mr-1" />
+                Diff
+              </Button>
+            )}
+            <Button size="sm" variant="outline" onClick={() => setShowCreate(true)}>
+              <Plus className="h-3 w-3 mr-1" />
+              Snapshot
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -269,6 +279,8 @@ export function SnapshotManager({ agentId, onRollback }: { agentId: string; onRo
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <SnapshotDiff agentId={agentId} open={showDiff} onOpenChange={setShowDiff} />
       </CardContent>
     </Card>
   );
