@@ -10,6 +10,9 @@ import { AgentRunner } from "@/components/agents/agent-runner";
 import { TestSandbox } from "@/components/agents/test-sandbox";
 import { PublishDialog } from "@/components/agents/publish-dialog";
 import { MemoryPanel } from "@/components/agents/memory-panel";
+import { ScheduleManager } from "@/components/agents/schedule-manager";
+import { CollaboratorPanel } from "@/components/agents/collaborator-panel";
+import { RunHistory } from "@/components/agents/run-history";
 
 interface AgentDetail {
   id: string;
@@ -95,7 +98,14 @@ export default function AgentDetailPage({
         </CardContent>
       </Card>
 
+      <RunHistory agentId={agentId} />
+
       <TestSandbox agentId={agentId} />
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <ScheduleManager agentId={agentId} />
+        <CollaboratorPanel agentId={agentId} />
+      </div>
 
       <MemoryPanel agentId={agentId} />
 

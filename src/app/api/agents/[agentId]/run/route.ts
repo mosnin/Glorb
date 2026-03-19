@@ -12,11 +12,12 @@ export async function POST(
   if (!userId) return new Response("Unauthorized", { status: 401 });
 
   const { agentId } = await params;
-  const { message, session_id, conversation_history } = await req.json();
+  const { message, session_id, conversation_history, trigger_type } = await req.json();
 
   if (!message) return new Response("message is required", { status: 400 });
 
   const supabase = createAdminSupabaseClient();
+  const startTime = Date.now();
 
   // Save user message if session provided
   if (session_id) {
@@ -27,19 +28,54 @@ export async function POST(
     });
   }
 
+  // Create run record
+  const { data: run } = await supabase
+    .from("agent_runs")
+    .insert({
+      agent_id: agentId,
+      user_id: userId,
+      status: "running",
+      input_message: message,
+      trigger_type: trigger_type || "manual",
+    })
+    .select()
+    .single();
+
   // Dispatch webhook
-  dispatchWebhook(userId, "agent.run.started", { agent_id: agentId }).catch(() => {});
+  dispatchWebhook(userId, "agent.run.started", { agent_id: agentId, run_id: run?.id }).catch(() => {});
 
   const stream = new ReadableStream({
     async start(controller) {
       const encoder = new TextEncoder();
       let fullResponse = "";
       let hasError = false;
+      let totalInputTokens = 0;
+      let totalOutputTokens = 0;
+      let turnNumber = 0;
 
       try {
         for await (const event of runAgent({ agentId, userMessage: message, userId, conversationHistory: conversation_history })) {
           if (event.type === "text" && event.content) fullResponse += event.content;
           if (event.type === "error") hasError = true;
+          if (event.type === "tool_use") turnNumber++;
+          if (event.type === "done" && event.usage) {
+            totalInputTokens += event.usage.input_tokens;
+            totalOutputTokens += event.usage.output_tokens;
+          }
+
+          // Record trace event
+          if (run) {
+            supabase.from("agent_run_events").insert({
+              run_id: run.id,
+              event_type: event.type,
+              turn_number: turnNumber || 1,
+              content: event.type === "text" ? event.content : undefined,
+              tool_name: event.tool_name,
+              tool_input: event.tool_input || undefined,
+              tool_result: event.tool_result,
+            }).then(() => {});
+          }
+
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
         }
 
@@ -52,14 +88,42 @@ export async function POST(
           });
         }
 
+        // Update run record
+        if (run) {
+          await supabase.from("agent_runs").update({
+            status: hasError ? "failed" : "completed",
+            output_message: fullResponse.slice(0, 50000),
+            total_turns: turnNumber,
+            input_tokens: totalInputTokens,
+            output_tokens: totalOutputTokens,
+            duration_ms: Date.now() - startTime,
+            error_message: hasError ? "Agent returned an error" : null,
+            completed_at: new Date().toISOString(),
+          }).eq("id", run.id);
+        }
+
         // Dispatch completion webhook
         dispatchWebhook(userId, hasError ? "agent.run.failed" : "agent.run.completed", {
           agent_id: agentId,
+          run_id: run?.id,
           response_length: fullResponse.length,
+          duration_ms: Date.now() - startTime,
+          input_tokens: totalInputTokens,
+          output_tokens: totalOutputTokens,
         }).catch(() => {});
       } catch (err) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "error", error: err instanceof Error ? err.message : "Unknown error" })}\n\n`));
-        dispatchWebhook(userId, "agent.run.failed", { agent_id: agentId }).catch(() => {});
+
+        if (run) {
+          await supabase.from("agent_runs").update({
+            status: "failed",
+            error_message: err instanceof Error ? err.message : "Unknown error",
+            duration_ms: Date.now() - startTime,
+            completed_at: new Date().toISOString(),
+          }).eq("id", run.id);
+        }
+
+        dispatchWebhook(userId, "agent.run.failed", { agent_id: agentId, run_id: run?.id }).catch(() => {});
       }
       controller.close();
     },

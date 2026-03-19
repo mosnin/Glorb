@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { WebhookManager } from "@/components/settings/webhook-manager";
+import { WorkspaceManager } from "@/components/settings/workspace-manager";
 
 interface ApiKey {
   id: string;
@@ -204,6 +205,9 @@ glorb pull agent <agent-id>`}
           </div>
         </CardContent>
       </Card>
+
+      {/* Workspace */}
+      <WorkspaceManager />
 
       {/* Webhooks */}
       <WebhookManager />
