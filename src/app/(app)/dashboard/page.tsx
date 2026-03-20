@@ -98,7 +98,7 @@ const statCards = [
 
 function OnboardingHero() {
   return (
-    <div className="relative overflow-hidden rounded-xl border bg-gradient-to-br from-violet-500/5 via-blue-500/5 to-emerald-500/5 p-8 animate-fade-in-up">
+    <div className="relative overflow-hidden rounded-xl border bg-gradient-to-br from-violet-500/5 via-blue-500/5 to-emerald-500/5 p-4 sm:p-8 animate-fade-in-up">
       {/* Decorative blobs */}
       <div className="absolute -top-20 -right-20 h-48 w-48 rounded-full bg-violet-500/10 blur-3xl" />
       <div className="absolute -bottom-20 -left-20 h-48 w-48 rounded-full bg-blue-500/10 blur-3xl" />
@@ -259,7 +259,7 @@ export default function DashboardPage() {
       {isEmpty && <OnboardingHero />}
 
       {/* Stats Cards — with gradient accents */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         {statCards.map(({ key, label, icon: Icon, gradient, iconColor }, i) => (
           <Card key={key} className={`animate-fade-in-up stagger-${i + 1} overflow-hidden`}>
             <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-50`} />
@@ -293,7 +293,7 @@ export default function DashboardPage() {
 
       {/* Quick Actions — only show when not empty */}
       {!isEmpty && (
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           <Link href="/chat">
             <Card className="group hover:border-violet-500/50 transition-all duration-200 cursor-pointer hover:shadow-md hover:shadow-violet-500/5">
               <CardHeader className="flex flex-row items-center gap-3 pb-2">
@@ -428,7 +428,7 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Recent Agents */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">

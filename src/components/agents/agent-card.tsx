@@ -13,11 +13,13 @@ interface AgentCardProps {
 
 export function AgentCard({ agent }: AgentCardProps) {
   return (
-    <Card className="hover:border-primary/50 transition-colors">
+    <Card className="hover:border-violet-500/50 hover:shadow-md hover:shadow-violet-500/5 transition-all duration-200">
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
-            <Bot className="h-5 w-5 text-muted-foreground" />
+            <div className="rounded-lg bg-violet-500/10 p-1.5">
+              <Bot className="h-4 w-4 text-violet-500" />
+            </div>
             <CardTitle className="text-base">
               <Link
                 href={`/agents/${agent.id}`}

@@ -125,7 +125,7 @@ export function CommandPalette() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="p-0 gap-0 max-w-lg overflow-hidden">
+      <DialogContent className="p-0 gap-0 max-w-[calc(100vw-2rem)] sm:max-w-lg overflow-hidden" showCloseButton={false}>
         <div className="flex items-center border-b px-3">
           <Search className="h-4 w-4 text-muted-foreground shrink-0" />
           <Input

@@ -20,11 +20,13 @@ export function ClusterCard({ cluster }: ClusterCardProps) {
   const agentCount = cluster.cluster_agents?.length || 0;
 
   return (
-    <Card className="hover:border-primary/50 transition-colors">
+    <Card className="hover:border-blue-500/50 hover:shadow-md hover:shadow-blue-500/5 transition-all duration-200">
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
-            <Network className="h-5 w-5 text-muted-foreground" />
+            <div className="rounded-lg bg-blue-500/10 p-1.5">
+              <Network className="h-4 w-4 text-blue-500" />
+            </div>
             <CardTitle className="text-base">
               <Link href={`/clusters/${cluster.id}`} className="hover:underline">
                 {cluster.name}

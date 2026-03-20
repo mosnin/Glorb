@@ -97,7 +97,7 @@ export function NotificationCenter() {
           </Button>
         }
       />
-      <SheetContent side="right" className="w-80 p-0">
+      <SheetContent side="right" className="w-[min(20rem,100vw-2rem)] p-0">
         <SheetHeader className="border-b px-4 py-3">
           <div className="flex items-center justify-between">
             <SheetTitle className="text-sm">Notifications</SheetTitle>
