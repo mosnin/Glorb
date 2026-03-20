@@ -181,8 +181,12 @@ export default function DashboardPage() {
         fetch("/api/dashboard/stats"),
         fetch("/api/agents/health"),
       ]);
-      if (statsRes.ok) setStats(await statsRes.json());
-      else setError("Failed to load dashboard stats");
+      if (statsRes.ok) {
+        setStats(await statsRes.json());
+      } else {
+        const body = await statsRes.json().catch(() => ({}));
+        setError(body.error || `Failed to load dashboard stats (${statsRes.status})`);
+      }
       if (fleetRes.ok) setFleet(await fleetRes.json());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load dashboard");
