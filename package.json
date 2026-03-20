@@ -8,9 +8,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:cf": "npx @opennextjs/cloudflare",
+    "build:cf": "npx @opennextjs/cloudflare build",
     "preview:cf": "wrangler dev",
-    "deploy:cf": "npx @opennextjs/cloudflare && wrangler deploy",
+    "deploy:cf": "npx @opennextjs/cloudflare build && wrangler deploy",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
