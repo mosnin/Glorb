@@ -1,43 +1,44 @@
 /**
  * Patch for @opennextjs/cloudflare compatibility with Next.js 16.
  *
- * Next.js 16 (Turbopack) no longer outputs server/middleware.js into the
- * standalone directory. OpenNext hardcodes looking for this file and throws
- * if it's missing. This script copies it from .next/server/ to the
- * standalone directory, or creates a minimal stub if it doesn't exist.
+ * Next.js 16 standalone output doesn't include server/middleware.js even
+ * though the trace file references it. OpenNext's copyTracedFiles throws
+ * when it can't find the file. This script copies or stubs the missing
+ * file into the standalone directory.
  */
 import { existsSync, copyFileSync, writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
 
-const dotNext = ".next";
-const standalone = join(".next", "standalone", ".next");
-const serverDir = join(standalone, "server");
+const dotNextServer = join(".next", "server");
+const standaloneServer = join(".next", "standalone", ".next", "server");
 
-const middlewareJs = join(dotNext, "server", "middleware.js");
-const middlewareNft = join(dotNext, "server", "middleware.js.nft.json");
-const standaloneMiddlewareJs = join(serverDir, "middleware.js");
-const standaloneMiddlewareNft = join(serverDir, "middleware.js.nft.json");
+mkdirSync(standaloneServer, { recursive: true });
 
-// Ensure server dir exists
-mkdirSync(serverDir, { recursive: true });
+const MIDDLEWARE_STUB = "// Next.js 16 proxy (middleware stub)\nmodule.exports = {};\n";
+const NFT_STUB = JSON.stringify({ version: 1, files: [] });
 
-// Copy or stub middleware.js
-if (existsSync(middlewareJs)) {
+// Copy middleware.js from .next/server/ to standalone, or create stub
+const srcJs = join(dotNextServer, "middleware.js");
+const dstJs = join(standaloneServer, "middleware.js");
+
+if (existsSync(srcJs)) {
   console.log("Copying middleware.js to standalone...");
-  copyFileSync(middlewareJs, standaloneMiddlewareJs);
-} else if (!existsSync(standaloneMiddlewareJs)) {
-  console.log("Creating middleware.js stub in standalone (Next.js 16 Turbopack compat)...");
-  // Minimal stub — OpenNext bundles middleware separately; this just needs to exist
-  writeFileSync(standaloneMiddlewareJs, "// Next.js 16 proxy (middleware stub)\n");
+  copyFileSync(srcJs, dstJs);
+} else if (!existsSync(dstJs)) {
+  console.log("Creating middleware.js stub in standalone...");
+  writeFileSync(dstJs, MIDDLEWARE_STUB);
 }
 
-// Copy or stub the .nft.json trace file
-if (existsSync(middlewareNft)) {
+// Copy nft.json trace file, or create stub
+const srcNft = join(dotNextServer, "middleware.js.nft.json");
+const dstNft = join(standaloneServer, "middleware.js.nft.json");
+
+if (existsSync(srcNft)) {
   console.log("Copying middleware.js.nft.json to standalone...");
-  copyFileSync(middlewareNft, standaloneMiddlewareNft);
-} else if (!existsSync(standaloneMiddlewareNft)) {
-  console.log("Creating middleware.js.nft.json stub...");
-  writeFileSync(standaloneMiddlewareNft, JSON.stringify({ version: 1, files: [] }));
+  copyFileSync(srcNft, dstNft);
+} else if (!existsSync(dstNft)) {
+  console.log("Creating middleware.js.nft.json stub in standalone...");
+  writeFileSync(dstNft, NFT_STUB);
 }
 
 console.log("Cloudflare build patch complete.");

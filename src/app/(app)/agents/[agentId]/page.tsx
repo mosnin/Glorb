@@ -62,8 +62,12 @@ export default function AgentDetailPage({
 
   const loadAgent = () => {
     fetch(`/api/agents/${agentId}`)
-      .then((res) => res.json())
-      .then(setAgent);
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to load agent (${res.status})`);
+        return res.json();
+      })
+      .then(setAgent)
+      .catch((err) => toast.error(err.message));
   };
 
   useEffect(() => {

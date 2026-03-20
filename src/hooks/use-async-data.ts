@@ -22,6 +22,8 @@ export function useAsyncData<T>(
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
+  const depsKey = JSON.stringify(options?.deps || []);
+
   const fetchData = useCallback(async () => {
     if (!url) {
       setLoading(false);
@@ -44,7 +46,8 @@ export function useAsyncData<T>(
     } finally {
       setLoading(false);
     }
-  }, [url, retryCount, ...(options?.deps || [])]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url, retryCount, depsKey]);
 
   useEffect(() => {
     fetchData();

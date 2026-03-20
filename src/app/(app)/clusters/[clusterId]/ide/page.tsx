@@ -30,7 +30,10 @@ export default function ClusterIDEPage({
 
   useEffect(() => {
     fetch(`/api/clusters/${clusterId}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to load cluster (${res.status})`);
+        return res.json();
+      })
       .then((data) => {
         setCluster({ name: data.name });
 
@@ -107,7 +110,8 @@ export default function ClusterIDEPage({
         }
 
         setFileTree([root]);
-      });
+      })
+      .catch(() => {});
   }, [clusterId]);
 
   const handleFileSelect = useCallback(
@@ -208,7 +212,7 @@ export default function ClusterIDEPage({
   );
 
   return (
-    <div className="flex flex-col h-[calc(100vh-0px)]">
+    <div className="flex flex-col h-screen">
       <div className="flex items-center gap-3 border-b px-4 py-2">
         <Button variant="ghost" size="icon" render={<Link href={`/clusters/${clusterId}`} />}>
             <ArrowLeft className="h-4 w-4" />

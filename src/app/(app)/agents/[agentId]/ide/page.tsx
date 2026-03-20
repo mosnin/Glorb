@@ -40,13 +40,17 @@ export default function AgentIDEPage({
 
   const loadAgent = useCallback(() => {
     fetch(`/api/agents/${agentId}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to load agent (${res.status})`);
+        return res.json();
+      })
       .then((data) => {
         setAgent({ name: data.name, description: data.description });
         const agentFiles = data.agent_files || [];
         setFiles(agentFiles);
         setFileTree(buildFileTree(agentFiles, data.name));
-      });
+      })
+      .catch(() => {});
   }, [agentId]);
 
   // Load agent and files
@@ -158,7 +162,7 @@ export default function AgentIDEPage({
   );
 
   return (
-    <div className="flex flex-col h-[calc(100vh-0px)]">
+    <div className="flex flex-col h-screen">
       {/* Header */}
       <div className="flex items-center gap-3 border-b px-4 py-2">
         <Button variant="ghost" size="icon" render={<Link href={`/agents/${agentId}`} />}>

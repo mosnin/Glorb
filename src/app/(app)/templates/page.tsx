@@ -42,7 +42,10 @@ export default function TemplatesPage() {
     if (search) params.set("search", search);
 
     fetch(`/api/templates?${params}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to load templates (${res.status})`);
+        return res.json();
+      })
       .then((data) => {
         setTemplates(Array.isArray(data) ? data : []);
         setLoading(false);

@@ -51,8 +51,12 @@ export default function ClusterDetailPage({
 
   useEffect(() => {
     fetch(`/api/clusters/${clusterId}`)
-      .then((res) => res.json())
-      .then(setCluster);
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to load cluster (${res.status})`);
+        return res.json();
+      })
+      .then(setCluster)
+      .catch(() => {});
   }, [clusterId]);
 
   if (!cluster) {
