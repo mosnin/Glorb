@@ -21,7 +21,7 @@ export default function RootLayout({
       signUpFallbackRedirectUrl="/dashboard"
     >
       <html lang="en" className="h-full antialiased dark">
-        <body className="min-h-full flex flex-col font-sans">
+        <body className="min-h-full flex flex-col">
           <TooltipProvider>
             {children}
             <Toaster />
