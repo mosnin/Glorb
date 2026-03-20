@@ -15,8 +15,8 @@ export default function LandingPage() {
             <span className="text-lg font-semibold">Glorb</span>
           </div>
           <div className="flex gap-2">
-            <Button variant="ghost" render={<Link href="/sign-in" />}>Sign In</Button>
-            <Button render={<Link href="/sign-up" />}>Get Started</Button>
+            <Link href="/sign-in"><Button variant="ghost">Sign In</Button></Link>
+            <Link href="/sign-up"><Button>Get Started</Button></Link>
           </div>
         </div>
       </nav>
@@ -34,8 +34,8 @@ export default function LandingPage() {
             agents, clusters, handoffs, and tools.
           </p>
           <div className="flex gap-3 justify-center">
-            <Button size="lg" render={<Link href="/sign-up" />}>Start Building</Button>
-            <Button size="lg" variant="outline" render={<Link href="/sign-in" />}>Sign In</Button>
+            <Link href="/sign-up"><Button size="lg">Start Building</Button></Link>
+            <Link href="/sign-in"><Button size="lg" variant="outline">Sign In</Button></Link>
           </div>
         </div>
       </section>
