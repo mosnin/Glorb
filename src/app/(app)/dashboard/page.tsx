@@ -89,32 +89,27 @@ function timeAgo(dateStr: string) {
 }
 
 const statCards = [
-  { key: "agents" as const, label: "Agents", icon: Bot, gradient: "from-violet-500/10 to-purple-500/10", iconColor: "text-violet-500" },
-  { key: "clusters" as const, label: "Clusters", icon: Network, gradient: "from-blue-500/10 to-cyan-500/10", iconColor: "text-blue-500" },
-  { key: "runs_7d" as const, label: "Runs (7d)", icon: Zap, gradient: "from-amber-500/10 to-orange-500/10", iconColor: "text-amber-500" },
+  { key: "agents" as const, label: "Agents", icon: Bot, iconBg: "bg-violet-500/10", iconColor: "text-violet-500" },
+  { key: "clusters" as const, label: "Clusters", icon: Network, iconBg: "bg-blue-500/10", iconColor: "text-blue-500" },
+  { key: "runs_7d" as const, label: "Runs (7d)", icon: Zap, iconBg: "bg-amber-500/10", iconColor: "text-amber-500" },
 ] as const;
 
 function OnboardingHero() {
   return (
-    <div className="relative overflow-hidden rounded-xl border bg-gradient-to-br from-violet-500/5 via-blue-500/5 to-emerald-500/5 p-4 sm:p-8 animate-fade-in-up">
-      {/* Decorative blobs */}
-      <div className="absolute -top-20 -right-20 h-48 w-48 rounded-full bg-violet-500/10 blur-3xl" />
-      <div className="absolute -bottom-20 -left-20 h-48 w-48 rounded-full bg-blue-500/10 blur-3xl" />
-
-      <div className="relative">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-blue-600 text-white animate-float">
+    <div className="rounded-xl border bg-card p-5 sm:p-8 animate-fade-in-up">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-blue-600 text-white shadow-lg shadow-violet-500/20">
             <Sparkles className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-xl font-bold">Welcome to Glorb</h2>
-            <p className="text-sm text-muted-foreground">Your AI agent platform is ready</p>
+            <h2 className="text-lg font-semibold tracking-tight">Welcome to Glorb</h2>
+            <p className="text-sm text-muted-foreground">Get started by creating your first agent</p>
           </div>
         </div>
 
-        <p className="text-muted-foreground mb-6 max-w-lg">
-          Describe what you need in natural language and the AI architect will build agents,
-          clusters, and tools for you. Start with one of these:
+        <p className="text-sm text-muted-foreground mb-6 max-w-lg leading-relaxed">
+          Describe what you need in natural language. The AI will build agents,
+          clusters, and tools for you.
         </p>
 
         <div className="grid gap-3 sm:grid-cols-3">
@@ -159,7 +154,6 @@ function OnboardingHero() {
               </CardContent>
             </Card>
           </Link>
-        </div>
       </div>
     </div>
   );
@@ -286,29 +280,31 @@ export default function DashboardPage() {
 
       {/* Stats Cards — with gradient accents */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        {statCards.map(({ key, label, icon: Icon, gradient, iconColor }, i) => (
-          <Card key={key} className={`animate-fade-in-up stagger-${i + 1} overflow-hidden`}>
-            <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-50`} />
-            <CardHeader className="relative flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">{label}</CardTitle>
-              <Icon className={`h-4 w-4 ${iconColor}`} />
+        {statCards.map(({ key, label, icon: Icon, iconBg, iconColor }, i) => (
+          <Card key={key} className={`animate-fade-in-up stagger-${i + 1}`}>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
+              <div className={`rounded-lg p-1.5 ${iconBg}`}>
+                <Icon className={`h-3.5 w-3.5 ${iconColor}`} />
+              </div>
             </CardHeader>
-            <CardContent className="relative">
-              <div className="text-2xl font-bold">{stats?.counts[key] ?? "—"}</div>
+            <CardContent>
+              <div className="text-2xl font-semibold tracking-tight">{stats?.counts[key] ?? "—"}</div>
             </CardContent>
           </Card>
         ))}
 
-        <Card className="animate-fade-in-up stagger-4 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-green-500/10 opacity-50" />
-          <CardHeader className="relative flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
-            <TrendingUp className="h-4 w-4 text-emerald-500" />
+        <Card className="animate-fade-in-up stagger-4">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Success Rate</CardTitle>
+            <div className="rounded-lg p-1.5 bg-emerald-500/10">
+              <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+            </div>
           </CardHeader>
-          <CardContent className="relative">
-            <div className="text-2xl font-bold">
+          <CardContent>
+            <div className="text-2xl font-semibold tracking-tight">
               {stats?.counts.success_rate_7d != null ? (
-                <span className={stats.counts.success_rate_7d >= 90 ? "text-emerald-600 dark:text-emerald-400" : stats.counts.success_rate_7d >= 70 ? "text-amber-600 dark:text-amber-400" : "text-red-600 dark:text-red-400"}>
+                <span className={stats.counts.success_rate_7d >= 90 ? "text-emerald-400" : stats.counts.success_rate_7d >= 70 ? "text-amber-400" : "text-red-400"}>
                   {stats.counts.success_rate_7d}%
                 </span>
               ) : "—"}

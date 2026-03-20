@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Bot, Network, MessageSquare, Download, Plug, Code, ArrowRight, Sparkles } from "lucide-react";
+import { Bot, Network, MessageSquare, Download, Plug, Code, ArrowRight } from "lucide-react";
 
 export default function LandingPage() {
   return (
@@ -22,33 +22,22 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero */}
-      <section className="relative flex-1 flex items-center justify-center px-4 py-24 sm:py-32 overflow-hidden">
-        {/* Background decoration */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/4 left-1/4 h-96 w-96 rounded-full bg-violet-500/8 blur-3xl animate-glow-pulse" />
-          <div className="absolute bottom-1/4 right-1/4 h-96 w-96 rounded-full bg-blue-500/8 blur-3xl animate-glow-pulse" style={{ animationDelay: "1.5s" }} />
-        </div>
-
-        <div className="relative text-center space-y-8 max-w-3xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border bg-muted/50 text-sm text-muted-foreground animate-fade-in-up">
-            <Sparkles className="h-3.5 w-3.5 text-violet-500" />
-            AI-Powered Agent Architecture
-          </div>
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight animate-fade-in-up stagger-1">
-            Architect Your{" "}
-            <span className="bg-gradient-to-r from-violet-500 to-blue-500 bg-clip-text text-transparent">
-              AI Agents
+      <section className="relative flex-1 flex items-center justify-center px-4 py-24 sm:py-32">
+        <div className="text-center space-y-6 max-w-2xl">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight animate-fade-in-up">
+            Build AI agents,{" "}
+            <span className="bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">
+              effortlessly
             </span>
           </h1>
-          <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto animate-fade-in-up stagger-2">
-            Glorb is an AI-powered platform for designing, building, and managing
-            agentic architectures. Describe what you need — we architect the
-            agents, clusters, handoffs, and tools.
+          <p className="text-lg text-muted-foreground max-w-xl mx-auto leading-relaxed animate-fade-in-up stagger-1">
+            Describe what you need in plain language. Glorb architects the agents,
+            clusters, handoffs, and tools.
           </p>
-          <div className="flex gap-3 justify-center animate-fade-in-up stagger-3">
+          <div className="flex gap-3 justify-center animate-fade-in-up stagger-2 pt-2">
             <Link href="/sign-up">
-              <Button size="lg" className="shadow-lg shadow-primary/20">
-                Start Building <ArrowRight className="h-4 w-4 ml-1.5" />
+              <Button size="lg">
+                Get Started <ArrowRight className="h-4 w-4 ml-1.5" />
               </Button>
             </Link>
             <Link href="/sign-in">
@@ -61,14 +50,14 @@ export default function LandingPage() {
       </section>
 
       {/* Features */}
-      <section className="border-t border-border/60 bg-muted/30 py-20 sm:py-24 px-4 sm:px-6">
+      <section className="border-t border-border/60 py-20 sm:py-24 px-4 sm:px-6">
         <div className="container mx-auto">
           <div className="text-center mb-14 space-y-3">
-            <h2 className="text-3xl sm:text-4xl font-bold">
-              Everything You Need
+            <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+              Everything you need
             </h2>
-            <p className="text-muted-foreground max-w-lg mx-auto">
-              A complete toolkit for building, managing, and deploying AI agent systems.
+            <p className="text-muted-foreground max-w-md mx-auto">
+              A complete platform for AI agent systems.
             </p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
@@ -144,11 +133,11 @@ function FeatureCard({
 }) {
   const colors = colorMap[color] || colorMap.violet;
   return (
-    <div className="group rounded-xl border border-border/60 bg-card p-6 space-y-4 transition-all duration-300 hover:border-border hover:shadow-lg hover:shadow-black/5">
-      <div className={`flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br transition-all duration-300 ${colors}`}>
-        <Icon className="h-5 w-5" />
+    <div className="group rounded-xl border border-border/60 bg-card p-6 space-y-3 transition-all duration-200 hover:border-border hover:shadow-sm">
+      <div className={`flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br transition-colors duration-200 ${colors}`}>
+        <Icon className="h-4.5 w-4.5" />
       </div>
-      <h3 className="font-semibold text-lg">{title}</h3>
+      <h3 className="font-medium">{title}</h3>
       <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
     </div>
   );
