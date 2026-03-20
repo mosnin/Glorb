@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
   const { data, error, count } = await supabase
     .from("agents")
     .select("*", { count: "exact" })
+    .eq("user_id", userId)
     .order("updated_at", { ascending: false })
     .range(offset, offset + pageSize - 1);
 
