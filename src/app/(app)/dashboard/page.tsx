@@ -20,7 +20,6 @@ import {
   Shield,
   AlertTriangle,
   WifiOff,
-  Loader2,
   Sparkles,
   Library,
   BarChart3,
@@ -29,7 +28,6 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -217,13 +215,34 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex-1 p-6 flex justify-center items-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="relative">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-500 to-blue-600 animate-pulse" />
-            <Loader2 className="h-5 w-5 text-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-spin" />
+      <div className="flex-1 p-6 space-y-6">
+        {/* Header skeleton */}
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <div className="h-8 w-48 rounded-md bg-muted animate-pulse" />
+            <div className="h-4 w-72 rounded-md bg-muted/60 animate-pulse" />
           </div>
-          <p className="text-sm text-muted-foreground">Loading dashboard...</p>
+          <div className="h-9 w-28 rounded-md bg-muted animate-pulse" />
+        </div>
+        {/* Stat cards skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-24 rounded-xl border border-border/40 bg-card animate-pulse">
+              <div className="p-4 space-y-3">
+                <div className="flex justify-between">
+                  <div className="h-4 w-16 rounded bg-muted/60" />
+                  <div className="h-4 w-4 rounded bg-muted/60" />
+                </div>
+                <div className="h-7 w-12 rounded bg-muted" />
+              </div>
+            </div>
+          ))}
+        </div>
+        {/* Content skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[1, 2].map((i) => (
+            <div key={i} className="h-52 rounded-xl border border-border/40 bg-card animate-pulse" />
+          ))}
         </div>
       </div>
     );
@@ -240,13 +259,20 @@ export default function DashboardPage() {
 
   const isEmpty = !stats?.counts.agents && !stats?.counts.clusters && !stats?.recentActivity.length;
 
+  const greeting = (() => {
+    const h = new Date().getHours();
+    if (h < 12) return "Good morning";
+    if (h < 18) return "Good afternoon";
+    return "Good evening";
+  })();
+
   return (
-    <div className="flex-1 p-6 space-y-6">
+    <div className="flex-1 p-4 sm:p-6 space-y-6">
       <div className="flex items-center justify-between animate-fade-in-up">
         <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
-            Architect and manage your AI agents and clusters.
+          <h1 className="text-2xl sm:text-3xl font-bold">{greeting}</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Here&apos;s an overview of your agents and clusters.
           </p>
         </div>
         <Button render={<Link href="/chat" />}>
@@ -291,52 +317,21 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Quick Actions — only show when not empty */}
+      {/* Quick Actions — compact row when user already has data */}
       {!isEmpty && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          <Link href="/chat">
-            <Card className="group hover:border-violet-500/50 transition-all duration-200 cursor-pointer hover:shadow-md hover:shadow-violet-500/5">
-              <CardHeader className="flex flex-row items-center gap-3 pb-2">
-                <div className="rounded-lg bg-gradient-to-br from-violet-500/20 to-purple-500/20 p-2 group-hover:from-violet-500/30 group-hover:to-purple-500/30 transition-all">
-                  <MessageSquare className="h-5 w-5 text-violet-600 dark:text-violet-400" />
-                </div>
-                <div>
-                  <CardTitle className="text-lg">Start Building</CardTitle>
-                  <CardDescription>
-                    Describe what you need and the AI will architect it
-                  </CardDescription>
-                </div>
-              </CardHeader>
-            </Card>
-          </Link>
-
-          <Link href="/templates">
-            <Card className="group hover:border-blue-500/50 transition-all duration-200 cursor-pointer hover:shadow-md hover:shadow-blue-500/5">
-              <CardHeader className="flex flex-row items-center gap-3 pb-2">
-                <div className="rounded-lg bg-gradient-to-br from-blue-500/20 to-cyan-500/20 p-2 group-hover:from-blue-500/30 group-hover:to-cyan-500/30 transition-all">
-                  <Zap className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div>
-                  <CardTitle className="text-lg">Templates</CardTitle>
-                  <CardDescription>Fork pre-built agents and clusters</CardDescription>
-                </div>
-              </CardHeader>
-            </Card>
-          </Link>
-
-          <Link href="/settings">
-            <Card className="group hover:border-amber-500/50 transition-all duration-200 cursor-pointer hover:shadow-md hover:shadow-amber-500/5">
-              <CardHeader className="flex flex-row items-center gap-3 pb-2">
-                <div className="rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20 p-2 group-hover:from-amber-500/30 group-hover:to-orange-500/30 transition-all">
-                  <Key className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                </div>
-                <div>
-                  <CardTitle className="text-lg">API & CLI</CardTitle>
-                  <CardDescription>Manage keys, MCP config, CLI setup</CardDescription>
-                </div>
-              </CardHeader>
-            </Card>
-          </Link>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" className="gap-2" render={<Link href="/chat" />}>
+            <MessageSquare className="h-3.5 w-3.5 text-violet-500" />
+            New Chat
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2" render={<Link href="/templates" />}>
+            <Library className="h-3.5 w-3.5 text-blue-500" />
+            Templates
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2" render={<Link href="/settings" />}>
+            <Key className="h-3.5 w-3.5 text-amber-500" />
+            API & CLI
+          </Button>
         </div>
       )}
 

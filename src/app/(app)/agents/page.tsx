@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Bot, MessageSquare } from "lucide-react";
+import { Bot, MessageSquare, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AgentCard } from "@/components/agents/agent-card";
 import { Pagination } from "@/components/pagination";
@@ -40,15 +40,21 @@ export default function AgentsPage() {
 
   return (
     <div className="flex-1 p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Agents</h1>
-        <p className="text-muted-foreground mt-1">
-          Your individual AI agents with prompts, skills, tools, and roles.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Agents</h1>
+          <p className="text-muted-foreground mt-1">
+            Your individual AI agents with prompts, skills, tools, and roles.
+          </p>
+        </div>
+        <Button render={<Link href="/chat" />}>
+          <Plus className="mr-2 h-4 w-4" />
+          Create Agent
+        </Button>
       </div>
 
       {loading ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
             <div
               key={i}
@@ -78,7 +84,7 @@ export default function AgentsPage() {
         </div>
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {agents.map((agent, i) => (
               <div key={agent.id} className={`animate-fade-in-up stagger-${Math.min(i + 1, 4)}`}>
                 <AgentCard agent={agent} />

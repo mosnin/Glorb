@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Network, MessageSquare } from "lucide-react";
+import { Network, MessageSquare, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ClusterCard } from "@/components/clusters/cluster-card";
 import { Pagination } from "@/components/pagination";
@@ -47,15 +47,21 @@ export default function ClustersPage() {
 
   return (
     <div className="flex-1 p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Clusters</h1>
-        <p className="text-muted-foreground mt-1">
-          Multi-agent architectures with managers, handoffs, and interaction maps.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Clusters</h1>
+          <p className="text-muted-foreground mt-1">
+            Multi-agent architectures with managers, handoffs, and interaction maps.
+          </p>
+        </div>
+        <Button render={<Link href="/chat" />}>
+          <Plus className="mr-2 h-4 w-4" />
+          Create Cluster
+        </Button>
       </div>
 
       {loading ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-40 rounded-lg bg-gradient-to-br from-muted to-muted/50 animate-pulse" />
           ))}
@@ -82,7 +88,7 @@ export default function ClustersPage() {
         </div>
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {clusters.map((cluster, i) => (
               <div key={cluster.id} className={`animate-fade-in-up stagger-${Math.min(i + 1, 4)}`}>
                 <ClusterCard cluster={cluster} />
