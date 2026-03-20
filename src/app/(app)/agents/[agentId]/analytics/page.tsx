@@ -17,7 +17,7 @@ export default function AgentAnalyticsPage({
   useEffect(() => {
     fetch(`/api/agents/${agentId}`)
       .then((r) => r.json())
-      .then((d) => setAgentName(d.name || "Agent"));
+      .then((d) => setAgentName((d as { name?: string }).name || "Agent"));
   }, [agentId]);
 
   return (

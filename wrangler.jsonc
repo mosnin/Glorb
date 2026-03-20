@@ -1,0 +1,29 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "glorb",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2025-04-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Assets (static files)
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+
+  // KV for Next.js incremental cache
+  // "kv_namespaces": [
+  //   { "binding": "NEXT_CACHE_WORKERS_KV", "id": "<your-kv-namespace-id>" }
+  // ],
+
+  // Cron trigger — replaces Vercel cron. Runs every minute.
+  "triggers": {
+    "crons": ["* * * * *"]
+  },
+
+  // Environment variables — set via `wrangler secret put` or CF dashboard
+  // "vars": {
+  //   "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "",
+  //   "NEXT_PUBLIC_SUPABASE_URL": ""
+  // }
+}
