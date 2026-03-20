@@ -304,6 +304,207 @@ export function createGlorbMcpServer() {
     }
   );
 
+  // Tool: Write memories back to Glorb
+  server.tool(
+    "store_memories",
+    "Store or update agent memories in Glorb. Memories are synced across all runtimes.",
+    {
+      agent_id: z.string().describe("The agent ID"),
+      user_id: z.string().describe("The user ID"),
+      memories: z.array(z.object({
+        key: z.string(),
+        value: z.string(),
+      })).describe("Array of key-value pairs to store"),
+    },
+    async ({ agent_id, user_id, memories }) => {
+      const supabase = createAdminSupabaseClient();
+      const rows = memories.map((m) => ({
+        agent_id,
+        user_id,
+        key: m.key,
+        value: m.value,
+        updated_at: new Date().toISOString(),
+      }));
+
+      const { data, error } = await supabase
+        .from("agent_memories")
+        .upsert(rows, { onConflict: "agent_id,user_id,key" })
+        .select("key, value");
+
+      if (error) {
+        return { content: [{ type: "text" as const, text: `Error: ${error.message}` }] };
+      }
+      return { content: [{ type: "text" as const, text: `Stored ${data?.length || 0} memories` }] };
+    }
+  );
+
+  // Tool: Send heartbeat
+  server.tool(
+    "heartbeat",
+    "Send a heartbeat for this agent runtime. Returns pending directives and config freshness info.",
+    {
+      agent_id: z.string().describe("The agent ID"),
+      user_id: z.string().describe("The user ID"),
+      source_framework: z.string().describe("Framework name (e.g. claude-code)"),
+      status: z.enum(["running", "idle", "paused"]).optional().describe("Current status"),
+    },
+    async ({ agent_id, user_id, source_framework, status }) => {
+      const supabase = createAdminSupabaseClient();
+
+      await supabase.from("agent_heartbeats").upsert(
+        {
+          agent_id,
+          user_id,
+          source_framework,
+          session_id: null,
+          status: status || "running",
+          metadata: {},
+          last_seen_at: new Date().toISOString(),
+        },
+        { onConflict: "agent_id,source_framework,session_id" }
+      );
+
+      // Get pending directives
+      const { data: directives } = await supabase
+        .from("agent_directives")
+        .select("*")
+        .eq("agent_id", agent_id)
+        .eq("status", "pending")
+        .order("created_at", { ascending: true })
+        .limit(10);
+
+      // Get config freshness
+      const { data: agent } = await supabase
+        .from("agents")
+        .select("updated_at")
+        .eq("id", agent_id)
+        .single();
+
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({
+            directives: directives || [],
+            config_updated_at: agent?.updated_at,
+          }, null, 2),
+        }],
+      };
+    }
+  );
+
+  // Tool: Poll directives
+  server.tool(
+    "poll_directives",
+    "Check for pending directives (tasks/commands) assigned to this agent from the Glorb UI.",
+    {
+      agent_id: z.string().describe("The agent ID"),
+      acknowledge: z.boolean().optional().describe("Auto-mark as delivered (default: true)"),
+    },
+    async ({ agent_id, acknowledge }) => {
+      const supabase = createAdminSupabaseClient();
+      const { data, error } = await supabase
+        .from("agent_directives")
+        .select("*")
+        .eq("agent_id", agent_id)
+        .eq("status", "pending")
+        .order("created_at", { ascending: true })
+        .limit(20);
+
+      if (error) {
+        return { content: [{ type: "text" as const, text: `Error: ${error.message}` }] };
+      }
+
+      // Auto-acknowledge
+      if (acknowledge !== false && data && data.length > 0) {
+        await supabase
+          .from("agent_directives")
+          .update({ status: "delivered", delivered_at: new Date().toISOString() })
+          .in("id", data.map((d) => d.id));
+      }
+
+      return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+    }
+  );
+
+  // Tool: Complete directive
+  server.tool(
+    "complete_directive",
+    "Mark a directive as completed with an optional result.",
+    {
+      agent_id: z.string().describe("The agent ID"),
+      directive_id: z.string().describe("The directive ID to complete"),
+      result: z.record(z.string(), z.unknown()).optional().describe("Result data"),
+    },
+    async ({ agent_id, directive_id, result }) => {
+      const supabase = createAdminSupabaseClient();
+      const { data, error } = await supabase
+        .from("agent_directives")
+        .update({
+          status: "completed",
+          completed_at: new Date().toISOString(),
+          result: result || {},
+        })
+        .eq("id", directive_id)
+        .eq("agent_id", agent_id)
+        .select()
+        .single();
+
+      if (error) {
+        return { content: [{ type: "text" as const, text: `Error: ${error.message}` }] };
+      }
+      return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+    }
+  );
+
+  // Tool: Push file to Glorb
+  server.tool(
+    "push_file",
+    "Push a file to the agent's Glorb storage. Creates or updates the file.",
+    {
+      agent_id: z.string().describe("The agent ID"),
+      user_id: z.string().describe("The user ID"),
+      file_path: z.string().describe("File path (e.g. 'prompt.md', 'skills/search.json')"),
+      content: z.string().describe("File content"),
+      file_type: z.string().optional().describe("File type (prompt, role, skill, doc, code, file)"),
+    },
+    async ({ agent_id, user_id, file_path, content, file_type }) => {
+      const supabase = createAdminSupabaseClient();
+      const fileName = file_path.split("/").pop() || file_path;
+      const storagePath = `${user_id}/${agent_id}/${file_path}`;
+      const contentBlob = new Blob([content], { type: "text/plain" });
+
+      const { error: uploadError } = await supabase.storage
+        .from("agent-files")
+        .upload(storagePath, contentBlob, { upsert: true, contentType: "text/plain" });
+
+      if (uploadError) {
+        return { content: [{ type: "text" as const, text: `Upload error: ${uploadError.message}` }] };
+      }
+
+      const inferredType = file_type || (file_path.includes("prompt") ? "prompt" :
+        file_path.includes("role") ? "role" :
+        file_path.includes("skill") ? "skill" : "file");
+
+      const { data, error } = await supabase
+        .from("agent_files")
+        .upsert({
+          agent_id,
+          file_name: fileName,
+          file_path,
+          file_type: inferredType,
+          storage_path: storagePath,
+          size_bytes: new TextEncoder().encode(content).length,
+        }, { onConflict: "agent_id,file_path" })
+        .select()
+        .single();
+
+      if (error) {
+        return { content: [{ type: "text" as const, text: `Error: ${error.message}` }] };
+      }
+      return { content: [{ type: "text" as const, text: `File saved: ${file_path} (${data.size_bytes} bytes)` }] };
+    }
+  );
+
   // Tool: Architect a new agent (delegates to AI)
   server.tool(
     "architect_agent",

@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createAutoSnapshot } from "@/lib/pipeline";
+import { dispatchWebhook } from "@/lib/webhooks";
 
 export async function GET(
   _req: NextRequest,
@@ -119,6 +120,31 @@ export async function PATCH(
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Notify external runtimes that config changed
+  if (body.content !== undefined) {
+    dispatchWebhook(userId, "agent.config.updated", {
+      agent_id: agentId,
+      file_id: fileId,
+      file_path: file.file_path,
+      file_type: file.file_type,
+    }).catch(() => {});
+
+    // Also push a config_refresh directive so polling runtimes pick it up
+    const supabase2 = await createServerSupabaseClient();
+    supabase2
+      .from("agent_directives")
+      .insert({
+        agent_id: agentId,
+        user_id: userId,
+        type: "config_refresh",
+        message: `File updated: ${file.file_path}`,
+        priority: "normal",
+        status: "pending",
+      })
+      .then(() => {});
+  }
+
   return NextResponse.json(data);
 }
 

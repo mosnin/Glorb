@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Activity, Radio, Filter, RefreshCw } from "lucide-react";
+import { Activity, Radio, Filter, RefreshCw, Send, Loader2, Wifi, WifiOff, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 interface SyncEvent {
   id: string;
@@ -17,6 +19,29 @@ interface SyncEvent {
   agent?: { id: string; name: string };
 }
 
+interface Heartbeat {
+  id: string;
+  source_framework: string;
+  session_id: string | null;
+  status: string;
+  last_seen_at: string;
+  is_alive: boolean;
+  is_stale: boolean;
+  metadata: Record<string, unknown>;
+}
+
+interface Directive {
+  id: string;
+  type: string;
+  message: string;
+  priority: string;
+  status: string;
+  created_at: string;
+  delivered_at: string | null;
+  completed_at: string | null;
+  result: Record<string, unknown> | null;
+}
+
 const EVENT_COLORS: Record<string, string> = {
   run_started: "bg-blue-500",
   run_completed: "bg-green-500",
@@ -25,6 +50,7 @@ const EVENT_COLORS: Record<string, string> = {
   decision_made: "bg-yellow-500",
   output_produced: "bg-cyan-500",
   memory_stored: "bg-indigo-500",
+  config_refreshed: "bg-emerald-500",
   error: "bg-red-600",
   heartbeat: "bg-gray-400",
 };
@@ -49,6 +75,14 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+const STATUS_COLORS: Record<string, string> = {
+  pending: "bg-yellow-500",
+  delivered: "bg-blue-500",
+  in_progress: "bg-purple-500",
+  completed: "bg-green-500",
+  failed: "bg-red-500",
+};
+
 export function SyncDashboard({
   agentId,
   clusterId,
@@ -57,9 +91,14 @@ export function SyncDashboard({
   clusterId?: string;
 }) {
   const [events, setEvents] = useState<SyncEvent[]>([]);
+  const [heartbeats, setHeartbeats] = useState<Heartbeat[]>([]);
+  const [directives, setDirectives] = useState<Directive[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string | null>(null);
   const [live, setLive] = useState(true);
+  const [directiveMessage, setDirectiveMessage] = useState("");
+  const [directiveType, setDirectiveType] = useState<string>("task");
+  const [sending, setSending] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchEvents = useCallback(async () => {
@@ -75,7 +114,6 @@ export function SyncDashboard({
       if (!res.ok) return;
       const data = await res.json();
 
-      // Cluster endpoint returns { events: [...] }, agent returns array directly
       const eventList = Array.isArray(data) ? data : data.events || [];
       setEvents(eventList);
     } catch {
@@ -85,19 +123,66 @@ export function SyncDashboard({
     }
   }, [agentId, clusterId]);
 
+  const fetchHeartbeats = useCallback(async () => {
+    if (!agentId) return;
+    try {
+      const res = await fetch(`/api/agents/${agentId}/heartbeats`);
+      if (res.ok) setHeartbeats(await res.json());
+    } catch {}
+  }, [agentId]);
+
+  const fetchDirectives = useCallback(async () => {
+    if (!agentId) return;
+    try {
+      const res = await fetch(`/api/agents/${agentId}/directives`);
+      if (res.ok) setDirectives(await res.json());
+    } catch {}
+  }, [agentId]);
+
   useEffect(() => {
     fetchEvents();
-  }, [fetchEvents]);
+    fetchHeartbeats();
+    fetchDirectives();
+  }, [fetchEvents, fetchHeartbeats, fetchDirectives]);
 
   // Live polling
   useEffect(() => {
     if (live) {
-      intervalRef.current = setInterval(fetchEvents, 5000);
+      intervalRef.current = setInterval(() => {
+        fetchEvents();
+        fetchHeartbeats();
+        fetchDirectives();
+      }, 5000);
     }
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [live, fetchEvents]);
+  }, [live, fetchEvents, fetchHeartbeats, fetchDirectives]);
+
+  const sendDirective = async () => {
+    if (!directiveMessage.trim() || !agentId) return;
+    setSending(true);
+    try {
+      const res = await fetch(`/api/agents/${agentId}/directives`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: directiveType,
+          message: directiveMessage.trim(),
+          priority: "normal",
+        }),
+      });
+      if (res.ok) {
+        toast.success("Directive sent");
+        setDirectiveMessage("");
+        fetchDirectives();
+      } else {
+        toast.error("Failed to send directive");
+      }
+    } finally {
+      setSending(false);
+    }
+  };
 
   // Derive framework summary
   const frameworkSummary = events.reduce<Record<string, string>>((acc, evt) => {
@@ -113,6 +198,7 @@ export function SyncDashboard({
     : events;
 
   const uniqueFrameworks = [...new Set(events.map((e) => e.source_framework))];
+  const aliveHeartbeats = heartbeats.filter((h) => h.is_alive);
 
   return (
     <Card>
@@ -121,6 +207,12 @@ export function SyncDashboard({
           <CardTitle className="text-base flex items-center gap-2">
             <Activity className="h-4 w-4" />
             Cross-Framework Activity
+            {aliveHeartbeats.length > 0 && (
+              <Badge variant="outline" className="text-[10px] gap-1">
+                <Wifi className="h-2.5 w-2.5 text-green-500" />
+                {aliveHeartbeats.length} runtime{aliveHeartbeats.length !== 1 ? "s" : ""} connected
+              </Badge>
+            )}
           </CardTitle>
           <div className="flex items-center gap-2">
             <Button
@@ -131,15 +223,49 @@ export function SyncDashboard({
               <Radio className={`h-3 w-3 mr-1 ${live ? "animate-pulse" : ""}`} />
               {live ? "Live" : "Paused"}
             </Button>
-            <Button size="sm" variant="ghost" onClick={fetchEvents}>
+            <Button size="sm" variant="ghost" onClick={() => { fetchEvents(); fetchHeartbeats(); fetchDirectives(); }}>
               <RefreshCw className="h-3 w-3" />
             </Button>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Framework status strip */}
-        {Object.keys(frameworkSummary).length > 0 && (
+        {/* Connected runtimes (heartbeats) */}
+        {heartbeats.length > 0 && (
+          <div>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              Connected Runtimes
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {heartbeats.map((hb) => (
+                <div
+                  key={hb.id}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs"
+                >
+                  {hb.is_alive ? (
+                    <Wifi className="h-3 w-3 text-green-500" />
+                  ) : (
+                    <WifiOff className={`h-3 w-3 ${hb.is_stale ? "text-red-400" : "text-yellow-500"}`} />
+                  )}
+                  <span className="font-medium">
+                    {FRAMEWORK_LABELS[hb.source_framework] || hb.source_framework}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {hb.status} · {timeAgo(hb.last_seen_at)}
+                  </span>
+                  {hb.session_id && (
+                    <span className="font-mono text-[10px] text-muted-foreground">
+                      {hb.session_id.slice(0, 8)}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Framework status (from events) — only show if no heartbeats */}
+        {heartbeats.length === 0 && Object.keys(frameworkSummary).length > 0 && (
           <div className="flex flex-wrap gap-2">
             {Object.entries(frameworkSummary).map(([fw, lastSeen]) => (
               <div
@@ -159,6 +285,58 @@ export function SyncDashboard({
                 <span className="text-muted-foreground">{timeAgo(lastSeen)}</span>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Send directive */}
+        {agentId && (
+          <div>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              Send Directive
+            </h3>
+            <div className="flex gap-2">
+              <select
+                value={directiveType}
+                onChange={(e) => setDirectiveType(e.target.value)}
+                className="text-xs border rounded px-2 py-1.5 bg-background w-28"
+              >
+                <option value="task">Task</option>
+                <option value="config_refresh">Refresh Config</option>
+                <option value="pause">Pause</option>
+                <option value="resume">Resume</option>
+                <option value="stop">Stop</option>
+              </select>
+              <Input
+                value={directiveMessage}
+                onChange={(e) => setDirectiveMessage(e.target.value)}
+                placeholder="Send a task or instruction to external runtimes..."
+                className="text-sm flex-1"
+                onKeyDown={(e) => e.key === "Enter" && sendDirective()}
+              />
+              <Button size="sm" onClick={sendDirective} disabled={sending || !directiveMessage.trim()}>
+                {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Recent directives */}
+        {directives.length > 0 && (
+          <div>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              Recent Directives
+            </h3>
+            <div className="space-y-1 max-h-40 overflow-y-auto">
+              {directives.slice(0, 10).map((d) => (
+                <div key={d.id} className="flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted">
+                  <span className={`h-2 w-2 rounded-full shrink-0 ${STATUS_COLORS[d.status] || "bg-gray-400"}`} />
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">{d.type}</Badge>
+                  <span className="truncate flex-1">{d.message}</span>
+                  <span className="text-muted-foreground shrink-0">{d.status}</span>
+                  <span className="text-muted-foreground shrink-0">{timeAgo(d.created_at)}</span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

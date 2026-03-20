@@ -9,6 +9,8 @@ export type WebhookEvent =
   | "cluster.run.completed"
   | "cluster.run.failed"
   | "agent.file.updated"
+  | "agent.config.updated"
+  | "agent.memory.updated"
   | "test.run.completed";
 
 export const WEBHOOK_EVENTS: { value: WebhookEvent; label: string }[] = [
@@ -19,6 +21,8 @@ export const WEBHOOK_EVENTS: { value: WebhookEvent; label: string }[] = [
   { value: "cluster.run.completed", label: "Cluster Run Completed" },
   { value: "cluster.run.failed", label: "Cluster Run Failed" },
   { value: "agent.file.updated", label: "Agent File Updated" },
+  { value: "agent.config.updated", label: "Agent Config Updated" },
+  { value: "agent.memory.updated", label: "Agent Memory Updated" },
   { value: "test.run.completed", label: "Test Run Completed" },
 ];
 

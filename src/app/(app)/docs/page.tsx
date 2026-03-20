@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 const API_BASE = "https://glorb.dev/api/v1";
 
 interface Endpoint {
-  method: "GET" | "POST" | "DELETE" | "PATCH";
+  method: "GET" | "POST" | "DELETE" | "PATCH" | "PUT";
   path: string;
   description: string;
   params?: { name: string; type: string; required: boolean; description: string }[];
@@ -99,6 +99,95 @@ const endpoints: { category: string; items: Endpoint[] }[] = [
     ],
   },
   {
+    category: "External Runtime (BYOR)",
+    items: [
+      {
+        method: "POST",
+        path: "/agents/:agentId/heartbeat",
+        description: "Send a heartbeat from an external runtime. Returns pending directives and config freshness.",
+        body: [
+          { name: "source_framework", type: "string", required: true, description: "Framework name (e.g. python, langchain)" },
+          { name: "session_id", type: "string", required: false, description: "Unique session identifier" },
+          { name: "status", type: "string", required: false, description: "running | idle | paused" },
+        ],
+        response: '{ "heartbeat": {...}, "directives": [...], "config_updated_at": "..." }',
+        curl: `curl -X POST -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"source_framework":"python","status":"running"}' \\
+  ${API_BASE}/agents/AGENT_ID/heartbeat`,
+      },
+      {
+        method: "GET",
+        path: "/agents/:agentId/directives",
+        description: "Poll for pending directives (tasks assigned from Glorb UI)",
+        params: [
+          { name: "status", type: "string", required: false, description: "pending | delivered | completed (default: pending)" },
+          { name: "acknowledge", type: "boolean", required: false, description: "Auto-mark as delivered (default: false)" },
+        ],
+        response: '[{ "id": "...", "type": "task", "message": "Analyze latest sales data", "priority": "normal" }]',
+        curl: `curl -H "Authorization: Bearer YOUR_API_KEY" \\
+  "${API_BASE}/agents/AGENT_ID/directives?status=pending&acknowledge=true"`,
+      },
+      {
+        method: "PATCH",
+        path: "/agents/:agentId/directives/:directiveId",
+        description: "Update directive status (acknowledge, complete, fail)",
+        body: [
+          { name: "status", type: "string", required: true, description: "delivered | in_progress | completed | failed" },
+          { name: "result", type: "object", required: false, description: "Result data (for completed/failed)" },
+        ],
+        curl: `curl -X PATCH -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"status":"completed","result":{"output":"Done"}}' \\
+  ${API_BASE}/agents/AGENT_ID/directives/DIRECTIVE_ID`,
+      },
+      {
+        method: "POST",
+        path: "/agents/:agentId/memories",
+        description: "Write memories back to Glorb (synced across all runtimes)",
+        body: [
+          { name: "key", type: "string", required: true, description: "Memory key" },
+          { name: "value", type: "string", required: true, description: "Memory value" },
+        ],
+        response: '{ "updated": 1, "memories": [{ "key": "...", "value": "..." }] }',
+        curl: `curl -X POST -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"key":"last_user","value":"Alice"}' \\
+  ${API_BASE}/agents/AGENT_ID/memories`,
+      },
+      {
+        method: "GET",
+        path: "/agents/:agentId/memories",
+        description: "Read all memories for this agent",
+        curl: `curl -H "Authorization: Bearer YOUR_API_KEY" ${API_BASE}/agents/AGENT_ID/memories`,
+      },
+      {
+        method: "PUT",
+        path: "/agents/:agentId/files",
+        description: "Push a file to the agent (creates or updates)",
+        body: [
+          { name: "file_path", type: "string", required: true, description: "File path (e.g. prompt.md)" },
+          { name: "content", type: "string", required: true, description: "File content" },
+          { name: "file_type", type: "string", required: false, description: "prompt | role | skill | doc | code | file" },
+        ],
+        curl: `curl -X PUT -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"file_path":"prompt.md","content":"# New prompt\\nYou are..."}' \\
+  ${API_BASE}/agents/AGENT_ID/files`,
+      },
+      {
+        method: "GET",
+        path: "/agents/:agentId/files",
+        description: "List agent files (add ?include_content=true for file contents)",
+        params: [
+          { name: "include_content", type: "boolean", required: false, description: "Include file contents (default: false)" },
+        ],
+        curl: `curl -H "Authorization: Bearer YOUR_API_KEY" \\
+  "${API_BASE}/agents/AGENT_ID/files?include_content=true"`,
+      },
+    ],
+  },
+  {
     category: "Clusters",
     items: [
       {
@@ -181,6 +270,7 @@ curl -H "Authorization: Bearer glb_your_api_key_here" ...`,
 const methodColors: Record<string, string> = {
   GET: "bg-green-500/10 text-green-700 dark:text-green-400",
   POST: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
+  PUT: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
   DELETE: "bg-red-500/10 text-red-700 dark:text-red-400",
   PATCH: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
 };

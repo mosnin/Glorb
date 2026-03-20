@@ -37,9 +37,15 @@ export interface GlorbAgentManifest {
     events_url: string;
     webhook_url: string;
     activity_feed_url: string;
+    heartbeat_url: string;
+    directives_url: string;
+    memories_url: string;
+    files_url: string;
   };
 
   // Metadata
+  manifest_version: string;
+  config_updated_at: string;
   pulled_at: string;
   source_url: string;
 }
@@ -174,6 +180,10 @@ export async function buildAgentManifest(
     });
   }
 
+  // Build a version hash from agent updated_at + file count + memory count
+  const versionInput = `${agent.updated_at}:${(agent.agent_files || []).length}:${(memories || []).length}`;
+  const manifestVersion = Buffer.from(versionInput).toString("base64url").slice(0, 12);
+
   return {
     glorb_version: "1.0",
     type: "agent",
@@ -192,7 +202,13 @@ export async function buildAgentManifest(
       events_url: `${baseUrl}/api/v1/agents/${agentId}/sync`,
       webhook_url: `${baseUrl}/api/v1/agents/${agentId}/sync`,
       activity_feed_url: `${baseUrl}/api/v1/agents/${agentId}/sync?feed=true`,
+      heartbeat_url: `${baseUrl}/api/v1/agents/${agentId}/heartbeat`,
+      directives_url: `${baseUrl}/api/v1/agents/${agentId}/directives`,
+      memories_url: `${baseUrl}/api/v1/agents/${agentId}/memories`,
+      files_url: `${baseUrl}/api/v1/agents/${agentId}/files`,
     },
+    manifest_version: manifestVersion,
+    config_updated_at: agent.updated_at,
     pulled_at: new Date().toISOString(),
     source_url: `${baseUrl}/agents/${agentId}`,
   };
